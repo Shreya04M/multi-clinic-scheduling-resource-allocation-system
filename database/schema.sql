@@ -1,23 +1,172 @@
-CREATE DATABASE IF NOT EXISTS clinic_scheduler;
-USE clinic_scheduler;
+CREATE DATABASE IF NOT EXISTS clinic_management;
+USE clinic_management;
 
-CREATE TABLE IF NOT EXISTS CLINIC (clinic_id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(120) NOT NULL, address VARCHAR(255) NOT NULL, phone VARCHAR(30), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS app_user (user_id INT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, role ENUM('ADMIN','DOCTOR','RECEPTIONIST') NOT NULL, clinic_id INT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, FOREIGN KEY (clinic_id) REFERENCES CLINIC(clinic_id));
-CREATE TABLE IF NOT EXISTS DOCTOR (doctor_id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(120) NOT NULL, specialization VARCHAR(120) NOT NULL, email VARCHAR(255) NOT NULL UNIQUE, phone VARCHAR(30), active BOOLEAN NOT NULL DEFAULT TRUE);
-CREATE TABLE IF NOT EXISTS PATIENT (patient_id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(120) NOT NULL, date_of_birth DATE NOT NULL, email VARCHAR(255), phone VARCHAR(30), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS MEDICINE (medicine_id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL UNIQUE, description TEXT, stock_quantity INT NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0));
-CREATE TABLE IF NOT EXISTS DOCTOR_AVAILABILITY (availability_id INT AUTO_INCREMENT PRIMARY KEY, doctor_id INT NOT NULL, clinic_id INT NOT NULL, weekday TINYINT NOT NULL CHECK (weekday BETWEEN 0 AND 6), start_time TIME NOT NULL, end_time TIME NOT NULL, FOREIGN KEY (doctor_id) REFERENCES DOCTOR(doctor_id), FOREIGN KEY (clinic_id) REFERENCES CLINIC(clinic_id), CHECK (start_time < end_time));
-CREATE TABLE IF NOT EXISTS DOCTOR_CLINIC (doctor_id INT NOT NULL, clinic_id INT NOT NULL, PRIMARY KEY (doctor_id, clinic_id), FOREIGN KEY (doctor_id) REFERENCES DOCTOR(doctor_id), FOREIGN KEY (clinic_id) REFERENCES CLINIC(clinic_id));
-CREATE TABLE IF NOT EXISTS ROOM (room_id INT AUTO_INCREMENT PRIMARY KEY, clinic_id INT NOT NULL, name VARCHAR(80) NOT NULL, room_type VARCHAR(80) NOT NULL, active BOOLEAN DEFAULT TRUE, UNIQUE (clinic_id, name), FOREIGN KEY (clinic_id) REFERENCES CLINIC(clinic_id));
-CREATE TABLE IF NOT EXISTS EQUIPMENT (equipment_id INT AUTO_INCREMENT PRIMARY KEY, clinic_id INT NOT NULL, name VARCHAR(120) NOT NULL, quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0), active BOOLEAN DEFAULT TRUE, FOREIGN KEY (clinic_id) REFERENCES CLINIC(clinic_id));
-CREATE TABLE IF NOT EXISTS APPOINTMENT (appointment_id INT AUTO_INCREMENT PRIMARY KEY, patient_id INT NOT NULL, doctor_id INT NOT NULL, clinic_id INT NOT NULL, room_id INT NOT NULL, start_time DATETIME NOT NULL, end_time DATETIME NOT NULL, status ENUM('SCHEDULED','COMPLETED','CANCELLED') NOT NULL DEFAULT 'SCHEDULED', reason VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (patient_id) REFERENCES PATIENT(patient_id), FOREIGN KEY (doctor_id) REFERENCES DOCTOR(doctor_id), FOREIGN KEY (clinic_id) REFERENCES CLINIC(clinic_id), FOREIGN KEY (room_id) REFERENCES ROOM(room_id), CHECK (start_time < end_time), INDEX idx_appointment_time (start_time, end_time), INDEX idx_appointment_doctor (doctor_id, start_time, end_time), INDEX idx_appointment_room (room_id, start_time, end_time));
-CREATE TABLE IF NOT EXISTS APPOINTMENT_EQUIPMENT (appointment_id INT NOT NULL, equipment_id INT NOT NULL, quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0), PRIMARY KEY (appointment_id, equipment_id), FOREIGN KEY (appointment_id) REFERENCES APPOINTMENT(appointment_id) ON DELETE CASCADE, FOREIGN KEY (equipment_id) REFERENCES EQUIPMENT(equipment_id));
-CREATE TABLE IF NOT EXISTS CLINICAL_NOTE (note_id INT AUTO_INCREMENT PRIMARY KEY, patient_id INT NOT NULL, doctor_id INT NOT NULL, clinic_id INT NOT NULL, appointment_id INT, note_text TEXT NOT NULL, embedding_id VARCHAR(120), updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, FOREIGN KEY (patient_id) REFERENCES PATIENT(patient_id), FOREIGN KEY (doctor_id) REFERENCES DOCTOR(doctor_id), FOREIGN KEY (clinic_id) REFERENCES CLINIC(clinic_id), FOREIGN KEY (appointment_id) REFERENCES APPOINTMENT(appointment_id) ON DELETE SET NULL, INDEX idx_note_access (clinic_id, patient_id));
-CREATE TABLE IF NOT EXISTS PRESCRIPTION (prescription_id INT AUTO_INCREMENT PRIMARY KEY, patient_id INT NOT NULL, doctor_id INT NOT NULL, appointment_id INT, prescribed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (patient_id) REFERENCES PATIENT(patient_id), FOREIGN KEY (doctor_id) REFERENCES DOCTOR(doctor_id), FOREIGN KEY (appointment_id) REFERENCES APPOINTMENT(appointment_id) ON DELETE SET NULL);
-CREATE TABLE IF NOT EXISTS PRESCRIPTION_MEDICINE (prescription_id INT NOT NULL, medicine_id INT NOT NULL, dosage VARCHAR(120) NOT NULL, duration VARCHAR(120), PRIMARY KEY (prescription_id, medicine_id), FOREIGN KEY (prescription_id) REFERENCES PRESCRIPTION(prescription_id) ON DELETE CASCADE, FOREIGN KEY (medicine_id) REFERENCES MEDICINE(medicine_id));
-CREATE TABLE IF NOT EXISTS FOLLOW_UP (follow_up_id INT AUTO_INCREMENT PRIMARY KEY, appointment_id INT NOT NULL, patient_id INT NOT NULL, scheduled_for DATETIME NOT NULL, status ENUM('PENDING','COMPLETED','CANCELLED') DEFAULT 'PENDING', notes VARCHAR(255), FOREIGN KEY (appointment_id) REFERENCES APPOINTMENT(appointment_id), FOREIGN KEY (patient_id) REFERENCES PATIENT(patient_id));
+CREATE TABLE DOCTOR (
+    doctor_id INT NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    specialization VARCHAR(100),
+    phone VARCHAR(20),
+    email VARCHAR(150),
+    license_number VARCHAR(50) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    PRIMARY KEY (doctor_id),
+    UNIQUE (email),
+    UNIQUE (license_number)
+);
 
-CREATE OR REPLACE VIEW appointment_summary AS SELECT a.appointment_id, p.name patient_name, d.name doctor_name, c.name clinic_name, r.name room_name, a.start_time, a.end_time, a.status FROM APPOINTMENT a JOIN PATIENT p USING(patient_id) JOIN DOCTOR d USING(doctor_id) JOIN CLINIC c USING(clinic_id) JOIN ROOM r USING(room_id);
-DELIMITER //
-CREATE TRIGGER appointment_no_invalid_status BEFORE UPDATE ON APPOINTMENT FOR EACH ROW BEGIN IF OLD.status='CANCELLED' AND NEW.status <> 'CANCELLED' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Cancelled appointments cannot be reopened'; END IF; END//
-DELIMITER ;
+CREATE TABLE CLINIC (
+    clinic_id INT NOT NULL,
+    clinic_name VARCHAR(150) NOT NULL,
+    address VARCHAR(255),
+    phone VARCHAR(20),
+    email VARCHAR(150),
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    PRIMARY KEY (clinic_id)
+);
+
+CREATE TABLE PATIENT (
+    patient_id INT NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    date_of_birth DATE NOT NULL,
+    gender VARCHAR(20),
+    phone VARCHAR(20),
+    email VARCHAR(150),
+    address VARCHAR(255),
+    PRIMARY KEY (patient_id)
+);
+
+CREATE TABLE MEDICINE (
+    medicine_id INT NOT NULL,
+    medicine_name VARCHAR(150) NOT NULL,
+    generic_name VARCHAR(150),
+    category VARCHAR(100),
+    PRIMARY KEY (medicine_id)
+);
+
+CREATE TABLE DOCTOR_AVAILABILITY (
+    availability_id INT NOT NULL,
+    doctor_id INT NOT NULL,
+    day_of_week VARCHAR(10) NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    PRIMARY KEY (availability_id),
+    FOREIGN KEY (doctor_id) REFERENCES DOCTOR(doctor_id),
+    CHECK (end_time > start_time)
+);
+
+CREATE TABLE DOCTOR_CLINIC (
+    doctor_id INT NOT NULL,
+    clinic_id INT NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    PRIMARY KEY (doctor_id, clinic_id, start_date),
+    FOREIGN KEY (doctor_id) REFERENCES DOCTOR(doctor_id),
+    FOREIGN KEY (clinic_id) REFERENCES CLINIC(clinic_id),
+    CHECK (end_date IS NULL OR end_date >= start_date)
+);
+
+CREATE TABLE ROOM (
+    room_id INT NOT NULL,
+    clinic_id INT NOT NULL,
+    room_number VARCHAR(20) NOT NULL,
+    room_type VARCHAR(50),
+    capacity INT,
+    status VARCHAR(20) NOT NULL DEFAULT 'available',
+    PRIMARY KEY (room_id),
+    FOREIGN KEY (clinic_id) REFERENCES CLINIC(clinic_id),
+    UNIQUE (clinic_id, room_number),
+    CHECK (capacity > 0)
+);
+
+CREATE TABLE EQUIPMENT (
+    equipment_id INT NOT NULL,
+    clinic_id INT NOT NULL,
+    equipment_type VARCHAR(100),
+    equipment_name VARCHAR(150) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'operational',
+    PRIMARY KEY (equipment_id),
+    FOREIGN KEY (clinic_id) REFERENCES CLINIC(clinic_id)
+);
+
+CREATE TABLE APPOINTMENT (
+    appointment_id INT NOT NULL,
+    patient_id INT NOT NULL,
+    doctor_id INT NOT NULL,
+    clinic_id INT NOT NULL,
+    room_id INT,
+    appointment_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    appointment_type VARCHAR(50),
+    status VARCHAR(20) NOT NULL DEFAULT 'scheduled',
+    PRIMARY KEY (appointment_id),
+    FOREIGN KEY (patient_id) REFERENCES PATIENT(patient_id),
+    FOREIGN KEY (doctor_id) REFERENCES DOCTOR(doctor_id),
+    FOREIGN KEY (clinic_id) REFERENCES CLINIC(clinic_id),
+    FOREIGN KEY (room_id) REFERENCES ROOM(room_id),
+    CHECK (end_time > start_time)
+);
+
+CREATE TABLE APPOINTMENT_EQUIPMENT (
+    appointment_id INT NOT NULL,
+    equipment_id INT NOT NULL,
+    PRIMARY KEY (appointment_id, equipment_id),
+    FOREIGN KEY (appointment_id) REFERENCES APPOINTMENT(appointment_id),
+    FOREIGN KEY (equipment_id) REFERENCES EQUIPMENT(equipment_id)
+);
+
+CREATE TABLE CLINICAL_NOTE (
+    note_id INT NOT NULL,
+    appointment_id INT NOT NULL,
+    doctor_id INT NOT NULL,
+    patient_id INT NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    note_text VARCHAR(4000),
+    embedding TEXT,
+    PRIMARY KEY (note_id),
+    FOREIGN KEY (appointment_id) REFERENCES APPOINTMENT(appointment_id),
+    FOREIGN KEY (doctor_id) REFERENCES DOCTOR(doctor_id),
+    FOREIGN KEY (patient_id) REFERENCES PATIENT(patient_id)
+);
+
+CREATE TABLE PRESCRIPTION (
+    prescription_id INT NOT NULL,
+    doctor_id INT NOT NULL,
+    patient_id INT NOT NULL,
+    appointment_id INT,
+    prescription_date DATE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    PRIMARY KEY (prescription_id),
+    FOREIGN KEY (doctor_id) REFERENCES DOCTOR(doctor_id),
+    FOREIGN KEY (patient_id) REFERENCES PATIENT(patient_id),
+    FOREIGN KEY (appointment_id) REFERENCES APPOINTMENT(appointment_id)
+);
+
+CREATE TABLE PRESCRIPTION_MEDICINE (
+    prescription_id INT NOT NULL,
+    medicine_id INT NOT NULL,
+    dosage VARCHAR(50),
+    frequency VARCHAR(50),
+    duration VARCHAR(50),
+    instructions VARCHAR(255),
+    PRIMARY KEY (prescription_id, medicine_id),
+    FOREIGN KEY (prescription_id) REFERENCES PRESCRIPTION(prescription_id),
+    FOREIGN KEY (medicine_id) REFERENCES MEDICINE(medicine_id)
+);
+
+CREATE TABLE FOLLOW_UP (
+    follow_up_id INT NOT NULL,
+    completed_appointment_id INT,
+    doctor_id INT NOT NULL,
+    patient_id INT NOT NULL,
+    recommended_date DATE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    PRIMARY KEY (follow_up_id),
+    FOREIGN KEY (completed_appointment_id) REFERENCES APPOINTMENT(appointment_id),
+    FOREIGN KEY (doctor_id) REFERENCES DOCTOR(doctor_id),
+    FOREIGN KEY (patient_id) REFERENCES PATIENT(patient_id)
+);
