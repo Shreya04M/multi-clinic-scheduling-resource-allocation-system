@@ -1,32 +1,127 @@
 from datetime import datetime
+
+from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
+
 from ..schemas import AppointmentCreate
 
+
 def create_appointment(db: Session, request: AppointmentCreate) -> int:
-    if request.start_time <= datetime.now(request.start_time.tzinfo):
+    appointment_start = datetime.combine(request.appointment_date, request.start_time)
+    if appointment_start <= datetime.now():
         raise HTTPException(422, "Appointment must start in the future")
+
     with db.begin():
-        doctor = db.execute(text("SELECT doctor_id FROM DOCTOR WHERE doctor_id=:id FOR UPDATE"), {"id": request.doctor_id}).first()
-        room = db.execute(text("SELECT room_id, clinic_id FROM ROOM WHERE room_id=:id AND active=1 FOR UPDATE"), {"id": request.room_id}).first()
-        if not doctor or not room or room.clinic_id != request.clinic_id:
+        doctor = db.execute(
+            text("SELECT doctor_id FROM DOCTOR WHERE doctor_id=:id AND status='active' FOR UPDATE"),
+            {"id": request.doctor_id},
+        ).first()
+        room = db.execute(
+            text(
+                "SELECT room_id, clinic_id FROM ROOM "
+                "WHERE room_id=:id AND clinic_id=:clinic_id AND status='available' FOR UPDATE"
+            ),
+            {"id": request.room_id, "clinic_id": request.clinic_id},
+        ).first()
+        if not doctor or not room:
             raise HTTPException(409, "Doctor or room is unavailable for this clinic")
-        linked = db.execute(text("SELECT 1 FROM DOCTOR_CLINIC WHERE doctor_id=:d AND clinic_id=:c"), {"d":request.doctor_id,"c":request.clinic_id}).first()
+
+        linked = db.execute(
+            text(
+                "SELECT 1 FROM DOCTOR_CLINIC "
+                "WHERE doctor_id=:doctor_id AND clinic_id=:clinic_id AND status='active' "
+                "AND start_date <= :appointment_date "
+                "AND (end_date IS NULL OR end_date >= :appointment_date)"
+            ),
+            {
+                "doctor_id": request.doctor_id,
+                "clinic_id": request.clinic_id,
+                "appointment_date": request.appointment_date,
+            },
+        ).first()
         if not linked:
             raise HTTPException(409, "Doctor is not associated with this clinic")
-        overlap = "SELECT 1 FROM APPOINTMENT WHERE status <> 'CANCELLED' AND (doctor_id=:d OR room_id=:r) AND start_time < :end AND end_time > :start LIMIT 1"
-        if db.execute(text(overlap), {"d":request.doctor_id,"r":request.room_id,"start":request.start_time,"end":request.end_time}).first():
+
+        overlap = db.execute(
+            text(
+                "SELECT 1 FROM APPOINTMENT "
+                "WHERE status NOT IN ('cancelled', 'completed') "
+                "AND appointment_date=:appointment_date "
+                "AND (doctor_id=:doctor_id OR room_id=:room_id) "
+                "AND start_time < :end_time AND end_time > :start_time LIMIT 1"
+            ),
+            {
+                "doctor_id": request.doctor_id,
+                "room_id": request.room_id,
+                "appointment_date": request.appointment_date,
+                "start_time": request.start_time,
+                "end_time": request.end_time,
+            },
+        ).first()
+        if overlap:
             raise HTTPException(409, "Doctor or room has an overlapping appointment")
-        for equipment_id, quantity in request.equipment:
-            item = db.execute(text("SELECT quantity FROM EQUIPMENT WHERE equipment_id=:e AND clinic_id=:c AND active=1 FOR UPDATE"), {"e":equipment_id,"c":request.clinic_id}).first()
-            if not item or item.quantity < quantity:
+
+        if len(request.equipment) != len(set(request.equipment)):
+            raise HTTPException(422, "Each equipment item may be selected only once")
+        for equipment_id in request.equipment:
+            item = db.execute(
+                text(
+                    "SELECT equipment_id FROM EQUIPMENT "
+                    "WHERE equipment_id=:equipment_id AND clinic_id=:clinic_id "
+                    "AND status='operational' FOR UPDATE"
+                ),
+                {"equipment_id": equipment_id, "clinic_id": request.clinic_id},
+            ).first()
+            if not item:
                 raise HTTPException(409, f"Equipment {equipment_id} is unavailable")
-            used = db.execute(text("SELECT COALESCE(SUM(ae.quantity),0) used_quantity FROM APPOINTMENT_EQUIPMENT ae JOIN APPOINTMENT a USING(appointment_id) WHERE ae.equipment_id=:e AND a.status <> 'CANCELLED' AND a.start_time < :end AND a.end_time > :start"), {"e":equipment_id,"start":request.start_time,"end":request.end_time}).scalar()
-            if used + quantity > item.quantity:
+
+            allocated = db.execute(
+                text(
+                    "SELECT 1 FROM APPOINTMENT_EQUIPMENT ae "
+                    "JOIN APPOINTMENT a USING (appointment_id) "
+                    "WHERE ae.equipment_id=:equipment_id "
+                    "AND a.status NOT IN ('cancelled', 'completed') "
+                    "AND a.appointment_date=:appointment_date "
+                    "AND a.start_time < :end_time AND a.end_time > :start_time "
+                    "LIMIT 1"
+                ),
+                {
+                    "equipment_id": equipment_id,
+                    "appointment_date": request.appointment_date,
+                    "start_time": request.start_time,
+                    "end_time": request.end_time,
+                },
+            ).first()
+            if allocated:
                 raise HTTPException(409, f"Equipment {equipment_id} has an overlapping allocation")
-        result = db.execute(text("INSERT INTO APPOINTMENT (patient_id,doctor_id,clinic_id,room_id,start_time,end_time,reason) VALUES (:p,:d,:c,:r,:s,:e,:reason)"), {"p":request.patient_id,"d":request.doctor_id,"c":request.clinic_id,"r":request.room_id,"s":request.start_time,"e":request.end_time,"reason":request.reason})
+
+        result = db.execute(
+            text(
+                "INSERT INTO APPOINTMENT "
+                "(patient_id, doctor_id, clinic_id, room_id, appointment_date, "
+                "start_time, end_time, status) "
+                "VALUES (:patient_id, :doctor_id, :clinic_id, :room_id, "
+                ":appointment_date, :start_time, :end_time, 'scheduled')"
+            ),
+            {
+                "patient_id": request.patient_id,
+                "doctor_id": request.doctor_id,
+                "clinic_id": request.clinic_id,
+                "room_id": request.room_id,
+                "appointment_date": request.appointment_date,
+                "start_time": request.start_time,
+                "end_time": request.end_time,
+            },
+        )
         appointment_id = result.lastrowid
-        for equipment_id, quantity in request.equipment:
-            db.execute(text("INSERT INTO APPOINTMENT_EQUIPMENT VALUES (:a,:e,:q)"), {"a":appointment_id,"e":equipment_id,"q":quantity})
+        for equipment_id in request.equipment:
+            db.execute(
+                text(
+                    "INSERT INTO APPOINTMENT_EQUIPMENT (appointment_id, equipment_id) "
+                    "VALUES (:appointment_id, :equipment_id)"
+                ),
+                {"appointment_id": appointment_id, "equipment_id": equipment_id},
+            )
+
     return appointment_id

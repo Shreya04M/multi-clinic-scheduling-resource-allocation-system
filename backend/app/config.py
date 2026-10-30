@@ -1,7 +1,8 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
-    database_url: str = "mysql+pymysql://root:root@localhost:3306/clinic_scheduler"
+    database_url: str = "mysql+pymysql://localhost:3306/clinic_management"
     jwt_secret: str = "development-only-change-me"
     jwt_expire_minutes: int = 60
     frontend_origin: str = "http://localhost:3000"
@@ -9,5 +10,6 @@ class Settings(BaseSettings):
     embedding_model: str = "all-MiniLM-L6-v2"
     search_top_k: int = 5
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
 
 settings = Settings()

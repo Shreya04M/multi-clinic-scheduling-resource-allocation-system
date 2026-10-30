@@ -55,15 +55,18 @@ database or after taking a backup.
 
 The current FastAPI implementation reads `DATABASE_URL` from `.env` through
 `backend/app/config.py` and creates its SQLAlchemy engine in
-`backend/app/db.py`; credentials are not stored in these scripts. The checked
-in backend currently defaults to a separate `clinic_scheduler` schema and
-expects additional columns such as `ROOM.active`, `EQUIPMENT.quantity`, and
-`APPOINTMENT.reason`. This requested `clinic_management` course schema
-intentionally preserves the pasted SQL instead of silently changing either
-the backend or the supplied database model. To run the current API against
-these scripts, a separate compatibility migration or coordinated backend
-mapping is still required. Set `DATABASE_URL` to a credentialed MySQL URL in
-`.env`; never commit the password.
+`backend/app/db.py`; credentials are not stored in these scripts. The backend
+default and `.env.example` now target `clinic_management`, while still
+allowing a credentialed `DATABASE_URL` override. Appointment scheduling uses
+`appointment_date` plus Python `datetime.time` values for the SQL `DATE` and
+`TIME` columns, equipment uses the schema's link table without invented
+quantity columns, and clinical notes use the actual note columns.
+
+The schema intentionally has no application-user, password, or role table.
+Consequently, `/auth/login` returns an explicit service-unavailable response
+until an authentication schema is provided; existing JWT-protected endpoints
+can still validate tokens issued by a compatible external login mechanism.
+No database password is committed.
 
 ## Corrections and manual attention
 
