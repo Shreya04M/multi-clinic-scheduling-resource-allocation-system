@@ -25,6 +25,24 @@ CREATE TABLE CLINIC (
     PRIMARY KEY (clinic_id)
 );
 
+CREATE TABLE APP_USER (
+    user_id INT NOT NULL AUTO_INCREMENT,
+    email VARCHAR(150) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'STAFF',
+    clinic_id INT,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id),
+    UNIQUE (email),
+    FOREIGN KEY (clinic_id) REFERENCES CLINIC(clinic_id),
+    CHECK (role IN ('ADMIN', 'STAFF')),
+    CHECK (status IN ('active', 'inactive'))
+);
+
+CREATE INDEX idx_app_user_clinic_status ON APP_USER (clinic_id, status);
+
 CREATE TABLE PATIENT (
     patient_id INT NOT NULL,
     first_name VARCHAR(50) NOT NULL,

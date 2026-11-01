@@ -4,8 +4,36 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: str = Field(min_length=3, max_length=150)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class RegisterRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=150)
+    password: str = Field(min_length=8, max_length=128)
+    role: str = Field(default="STAFF", min_length=5, max_length=20)
+    clinic_id: int | None = None
+
+    @model_validator(mode="after")
+    def valid_role(self):
+        self.role = self.role.upper()
+        if self.role not in ("ADMIN", "STAFF"):
+            raise ValueError("role must be ADMIN or STAFF")
+        return self
+
+
+class UserUpdate(BaseModel):
+    email: str | None = Field(default=None, min_length=3, max_length=150)
+    role: str | None = Field(default=None, min_length=5, max_length=20)
+    clinic_id: int | None = None
+
+    @model_validator(mode="after")
+    def valid_role(self):
+        if self.role is not None:
+            self.role = self.role.upper()
+            if self.role not in ("ADMIN", "STAFF"):
+                raise ValueError("role must be ADMIN or STAFF")
+        return self
 
 
 class AppointmentCreate(BaseModel):

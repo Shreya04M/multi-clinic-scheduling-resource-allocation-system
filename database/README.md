@@ -5,8 +5,11 @@ Multi-Clinic Patient Scheduling and Resource Allocation System.
 
 ## Files
 
-- `schema.sql` creates `clinic_management` and the 14 tables in foreign-key
+- `schema.sql` creates `clinic_management` and the 15 tables in foreign-key
   dependency order.
+  `APP_USER` stores only bcrypt password hashes, supports `ADMIN` and `STAFF`
+  roles, and optionally links staff to a clinic. Email is unique and account
+  status is constrained to `active` or `inactive`.
   `APPOINTMENT.appointment_id` and `CLINICAL_NOTE.note_id` are
   `AUTO_INCREMENT`; seed data may still provide explicit IDs, while backend
   inserts omit them and use MySQL-generated values.
@@ -65,11 +68,11 @@ allowing a credentialed `DATABASE_URL` override. Appointment scheduling uses
 `TIME` columns, equipment uses the schema's link table without invented
 quantity columns, and clinical notes use the actual note columns.
 
-The schema intentionally has no application-user, password, or role table.
-Consequently, `/auth/login` returns an explicit service-unavailable response
-until an authentication schema is provided; existing JWT-protected endpoints
-can still validate tokens issued by a compatible external login mechanism.
-No database password is committed.
+The first administrator must be created securely by generating a bcrypt hash
+with `backend/app/auth.py` and inserting it into `APP_USER`, or by using an
+already authenticated administrator to create the account. Public registration
+creates `STAFF` accounts only; it cannot create `ADMIN` accounts.
+No database password or application password is committed.
 
 Appointment creation also checks `DOCTOR_AVAILABILITY` for the appointment
 weekday and complete requested time range before checking overlaps and

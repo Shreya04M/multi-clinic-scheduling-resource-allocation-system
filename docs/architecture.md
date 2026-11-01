@@ -14,3 +14,11 @@ Clinical-note creation currently persists to MySQL only. The standalone
 Chroma synchronization utilities support upsert/delete, but note create,
 update, and delete API lifecycle hooks are not yet present; MySQL remains the
 source of truth until those hooks are added.
+
+`APP_USER` is the application identity table. `ADMIN` users are
+clinic-unscoped administrators; `STAFF` users are assigned to one clinic.
+Passwords are stored as bcrypt hashes only. Public registration creates staff
+accounts, while administrator creation requires an existing administrator or
+secure database bootstrap. JWTs carry the user ID, role, clinic scope, and
+expiry; protected endpoints validate the signature and expiry before using
+those claims.
