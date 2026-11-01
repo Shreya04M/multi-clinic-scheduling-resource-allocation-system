@@ -93,7 +93,7 @@ CREATE TABLE EQUIPMENT (
 );
 
 CREATE TABLE APPOINTMENT (
-    appointment_id INT NOT NULL,
+    appointment_id INT NOT NULL AUTO_INCREMENT,
     patient_id INT NOT NULL,
     doctor_id INT NOT NULL,
     clinic_id INT NOT NULL,
@@ -120,7 +120,7 @@ CREATE TABLE APPOINTMENT_EQUIPMENT (
 );
 
 CREATE TABLE CLINICAL_NOTE (
-    note_id INT NOT NULL,
+    note_id INT NOT NULL AUTO_INCREMENT,
     appointment_id INT NOT NULL,
     doctor_id INT NOT NULL,
     patient_id INT NOT NULL,

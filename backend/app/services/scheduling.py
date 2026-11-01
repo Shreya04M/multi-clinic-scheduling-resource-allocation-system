@@ -27,6 +27,23 @@ def create_appointment(db: Session, request: AppointmentCreate) -> int:
         if not doctor or not room:
             raise HTTPException(409, "Doctor or room is unavailable for this clinic")
 
+        availability = db.execute(
+            text(
+                "SELECT 1 FROM DOCTOR_AVAILABILITY "
+                "WHERE doctor_id=:doctor_id AND day_of_week=:day_of_week "
+                "AND status='active' AND start_time <= :start_time "
+                "AND end_time >= :end_time LIMIT 1"
+            ),
+            {
+                "doctor_id": request.doctor_id,
+                "day_of_week": appointment_start.strftime("%A"),
+                "start_time": request.start_time,
+                "end_time": request.end_time,
+            },
+        ).first()
+        if not availability:
+            raise HTTPException(409, "Doctor is unavailable during the requested time")
+
         linked = db.execute(
             text(
                 "SELECT 1 FROM DOCTOR_CLINIC "

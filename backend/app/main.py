@@ -74,24 +74,21 @@ def create_note(request: NoteCreate, user=Depends(current_user), db: Session = D
     ).first()
     if not appointment:
         raise HTTPException(422, "Appointment does not match the supplied patient, doctor, and clinic")
-    note_id = db.execute(
-        text("SELECT COALESCE(MAX(note_id), 0) + 1 FROM CLINICAL_NOTE")
-    ).scalar_one()
     db.execute(
         text(
             "INSERT INTO CLINICAL_NOTE "
-            "(note_id, appointment_id, doctor_id, patient_id, created_at, note_text) "
-            "VALUES (:note_id, :appointment_id, :doctor_id, :patient_id, "
+            "(appointment_id, doctor_id, patient_id, created_at, note_text) "
+            "VALUES (:appointment_id, :doctor_id, :patient_id, "
             "CURRENT_TIMESTAMP, :note_text)"
         ),
         {
-            "note_id": note_id,
             "appointment_id": request.appointment_id,
             "doctor_id": request.doctor_id,
             "patient_id": request.patient_id,
             "note_text": request.note_text,
         },
     )
+    note_id = db.execute(text("SELECT LAST_INSERT_ID()")).scalar_one()
     db.commit()
     return {"note_id": note_id}
 

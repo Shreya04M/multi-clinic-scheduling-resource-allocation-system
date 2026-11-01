@@ -7,6 +7,9 @@ Multi-Clinic Patient Scheduling and Resource Allocation System.
 
 - `schema.sql` creates `clinic_management` and the 14 tables in foreign-key
   dependency order.
+  `APPOINTMENT.appointment_id` and `CLINICAL_NOTE.note_id` are
+  `AUTO_INCREMENT`; seed data may still provide explicit IDs, while backend
+  inserts omit them and use MySQL-generated values.
 - `seed.sql` inserts the supplied doctors, clinics, patients, medicines,
   availability records, relationships, rooms, equipment, appointments,
   prescriptions, follow-ups, and clinical notes.
@@ -67,6 +70,15 @@ Consequently, `/auth/login` returns an explicit service-unavailable response
 until an authentication schema is provided; existing JWT-protected endpoints
 can still validate tokens issued by a compatible external login mechanism.
 No database password is committed.
+
+Appointment creation also checks `DOCTOR_AVAILABILITY` for the appointment
+weekday and complete requested time range before checking overlaps and
+allocating equipment. The whole insert and equipment-link operation runs in
+one transaction with row locks.
+
+The repository does not include a MySQL server or credentials. Run the
+backend tests for isolated validation, then execute the SQL scripts and
+integration tests against a disposable MySQL 8.0.16+ database.
 
 ## Corrections and manual attention
 
