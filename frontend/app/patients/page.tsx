@@ -1,9 +1,9 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-import { ConfirmDialog, DemoBanner, EmptyState, ErrorState, LoadingState, PageHeader, Toast } from "../components/ui";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ConfirmDialog, DemoBanner, Field, EmptyState, ErrorState, LoadingState, PageHeader, Toast } from "../components/ui";
 import PatientTable from "../components/patients/PatientTable";
 import { loadMockPatients } from "../lib/mock-patients";
-import type { Patient } from "../lib/types";
+import { GENDER_OPTIONS, type Patient } from "../lib/types";
 
 export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -11,6 +11,8 @@ export default function PatientsPage() {
   const [error, setError] = useState("");
   const [toDelete, setToDelete] = useState<Patient | null>(null);
   const [toast, setToast] = useState("");
+  const [search, setSearch] = useState("");
+  const [gender, setGender] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -24,6 +26,21 @@ export default function PatientsPage() {
   }, []);
 
   useEffect(load, [load]);
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return patients.filter(p => {
+      const matchesSearch = !term || String(p.patient_id).includes(term) || `${p.first_name} ${p.last_name}`.toLowerCase().includes(term);
+      const matchesGender = !gender || (p.gender ?? "") === gender;
+      return matchesSearch && matchesGender;
+    });
+  }, [patients, search, gender]);
+
+  const filtersActive = search.trim() !== "" || gender !== "";
+  const clearFilters = () => {
+    setSearch("");
+    setGender("");
+  };
 
   const confirmDelete = () => {
     if (!toDelete) return;
@@ -42,14 +59,32 @@ export default function PatientsPage() {
           <h2 id="patient-list-title">Patient records</h2>
         </div>
 
+        <div className="toolbar" role="search">
+          <div className="field grow"><label htmlFor="patient-search">Search by name or patient ID</label>
+            <input id="patient-search" type="search" placeholder="e.g. Kavya or 301" value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          <Field id="patient-gender" label="Gender">
+            <select id="patient-gender" value={gender} onChange={e => setGender(e.target.value)}>
+              <option value="">All genders</option>
+              {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </Field>
+          <button className="btn secondary" onClick={clearFilters} disabled={!filtersActive}>Clear filters</button>
+        </div>
+
         {loading ? (
           <LoadingState label="Loading patients…" />
         ) : error ? (
           <ErrorState message={error} onRetry={load} />
         ) : patients.length === 0 ? (
           <EmptyState title="No patients yet" message="There are no patient records to show." />
+        ) : filtered.length === 0 ? (
+          <EmptyState title="No matching patients" message="No patients match the current search or gender filter." action={<button className="btn secondary" onClick={clearFilters}>Clear filters</button>} />
         ) : (
-          <PatientTable patients={patients} onDelete={setToDelete} />
+          <>
+            <PatientTable patients={filtered} onDelete={setToDelete} />
+            <p className="result-count">Showing {filtered.length} of {patients.length} patients</p>
+          </>
         )}
       </section>
 
