@@ -1,9 +1,11 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ConfirmDialog, DemoBanner, Field, EmptyState, ErrorState, LoadingState, PageHeader, Toast } from "../components/ui";
+import { ConfirmDialog, DemoBanner, EmptyState, ErrorState, Field, LoadingState, Modal, PageHeader, Toast } from "../components/ui";
+import PatientDetails from "../components/patients/PatientDetails";
+import PatientForm from "../components/patients/PatientForm";
 import PatientTable from "../components/patients/PatientTable";
 import { loadMockPatients } from "../lib/mock-patients";
-import { GENDER_OPTIONS, type Patient } from "../lib/types";
+import { GENDER_OPTIONS, type Patient, type PatientInput } from "../lib/types";
 
 export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -13,6 +15,9 @@ export default function PatientsPage() {
   const [toast, setToast] = useState("");
   const [search, setSearch] = useState("");
   const [gender, setGender] = useState("");
+  const [viewing, setViewing] = useState<Patient | null>(null);
+  // "new" opens an empty Add form; a Patient opens the Edit form with its values.
+  const [editing, setEditing] = useState<Patient | "new" | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -42,6 +47,20 @@ export default function PatientsPage() {
     setGender("");
   };
 
+  const savePatient = (input: PatientInput) => {
+    if (editing === "new") {
+      // PATIENT.patient_id is not AUTO_INCREMENT; a real API would assign/validate it.
+      const nextId = patients.reduce((max, p) => Math.max(max, p.patient_id), 300) + 1;
+      setPatients(list => [...list, { patient_id: nextId, ...input }]);
+      setToast(`Demo only: ${input.first_name} ${input.last_name} was added on this page (ID ${nextId}) and not saved to MySQL.`);
+    } else if (editing) {
+      const updated = { ...editing, ...input };
+      setPatients(list => list.map(p => (p.patient_id === updated.patient_id ? updated : p)));
+      setToast(`Demo only: changes to ${updated.first_name} ${updated.last_name} were applied on this page, not saved to MySQL.`);
+    }
+    setEditing(null);
+  };
+
   const confirmDelete = () => {
     if (!toDelete) return;
     setPatients(list => list.filter(p => p.patient_id !== toDelete.patient_id));
@@ -51,7 +70,7 @@ export default function PatientsPage() {
 
   return (
     <main className="module">
-      <PageHeader eyebrow="PATIENT MANAGEMENT" title="Patients" description="View, search and maintain patient records across clinics." />
+      <PageHeader eyebrow="PATIENT MANAGEMENT" title="Patients" description="View, search and maintain patient records across clinics." action={<button className="btn light" onClick={() => setEditing("new")}>+ Add patient</button>} />
       <DemoBanner>No patient API endpoint exists yet. Records come from local sample data matching database/seed.sql, and changes last only until the page is reloaded.</DemoBanner>
 
       <section className="card" aria-labelledby="patient-list-title">
@@ -77,17 +96,27 @@ export default function PatientsPage() {
         ) : error ? (
           <ErrorState message={error} onRetry={load} />
         ) : patients.length === 0 ? (
-          <EmptyState title="No patients yet" message="There are no patient records to show." />
+          <EmptyState title="No patients yet" message="There are no patient records to show." action={<button className="btn" onClick={() => setEditing("new")}>Add the first patient</button>} />
         ) : filtered.length === 0 ? (
           <EmptyState title="No matching patients" message="No patients match the current search or gender filter." action={<button className="btn secondary" onClick={clearFilters}>Clear filters</button>} />
         ) : (
           <>
-            <PatientTable patients={filtered} onDelete={setToDelete} />
+            <PatientTable patients={filtered} onView={setViewing} onEdit={setEditing} onDelete={setToDelete} />
             <p className="result-count">Showing {filtered.length} of {patients.length} patients</p>
           </>
         )}
       </section>
 
+      {viewing && (
+        <Modal title="Patient details" onClose={() => setViewing(null)}>
+          <PatientDetails patient={viewing} onEdit={() => { setEditing(viewing); setViewing(null); }} />
+        </Modal>
+      )}
+      {editing && (
+        <Modal title={editing === "new" ? "Add patient" : `Edit patient #${editing.patient_id}`} onClose={() => setEditing(null)} wide>
+          <PatientForm initial={editing === "new" ? undefined : editing} onSubmit={savePatient} onCancel={() => setEditing(null)} />
+        </Modal>
+      )}
       {toDelete && (
         <ConfirmDialog
           title="Delete patient?"
