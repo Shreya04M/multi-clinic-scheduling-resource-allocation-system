@@ -99,16 +99,16 @@ following safe verification is run against a disposable MySQL 8.0.16+
 database:
 
 ```powershell
-mysql -u <user> -p -e "CREATE DATABASE clinic_management_audit;"
-mysql -u <user> -p clinic_management_audit < database/schema.sql
-mysql -u <user> -p clinic_management_audit < database/seed.sql
-mysql -u <user> -p clinic_management_audit < database/functions.sql
-mysql -u <user> -p clinic_management_audit < database/procedures.sql
-mysql -u <user> -p clinic_management_audit < database/views.sql
-mysql -u <user> -p clinic_management_audit < database/triggers.sql
-mysql -u <user> -p clinic_management_audit < database/indexes.sql
-mysql -u <user> -p clinic_management_audit < database/queries.sql
-mysql -u <user> -p clinic_management_audit < database/verify.sql
+mysql -u root -p -e "CREATE DATABASE clinic_management_audit;"
+mysql -u root -p clinic_management_audit < database/schema.sql
+mysql -u root -p clinic_management_audit < database/seed.sql
+mysql -u root -p clinic_management_audit < database/functions.sql
+mysql -u root -p clinic_management_audit < database/procedures.sql
+mysql -u root -p clinic_management_audit < database/views.sql
+mysql -u root -p clinic_management_audit < database/triggers.sql
+mysql -u root -p clinic_management_audit < database/indexes.sql
+mysql -u root -p clinic_management_audit < database/queries.sql
+mysql -u root -p clinic_management_audit < database/verify.sql
 ```
 
 The seed is non-destructive and rerunnable. The corrected equipment links use
@@ -129,3 +129,4 @@ occupancy for pre-existing appointments.
 
 No sample records were invented, and no setup script performs `UPDATE`,
 `DELETE`, `DROP DATABASE`, or `DROP TABLE`.
+

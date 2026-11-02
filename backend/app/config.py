@@ -1,8 +1,10 @@
+from zipfile import Path
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    database_url: str = "mysql+pymysql://@localhost:3306/clinic_management"
+    database_url: str = "mysql+pymysql://root:@localhost:3306/clinic_management"
     jwt_secret: str = ""
     jwt_expire_minutes: int = 60
     frontend_origin: str = "http://localhost:3000"
@@ -10,7 +12,10 @@ class Settings(BaseSettings):
     embedding_model: str = "all-MiniLM-L6-v2"
     embedding_dimension: int = 384
     search_top_k: int = 5
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+    env_file=Path(__file__).resolve().parents[1] / ".env",
+    extra="ignore"
+)
 
 
 settings = Settings()
