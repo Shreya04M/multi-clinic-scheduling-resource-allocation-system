@@ -69,3 +69,19 @@ export type RoomInput = Omit<Room, "room_id">;
 // rooms whose status is 'available'. The other values need confirming with the backend owner.
 export const ROOM_STATUSES = ["available", "maintenance", "unavailable"] as const;
 export const ROOM_TYPES = ["Consultation", "Examination", "Procedure"] as const;
+
+// EQUIPMENT table
+export interface Equipment {
+  equipment_id: number;
+  clinic_id: number;
+  equipment_type: string | null;
+  equipment_name: string;
+  status: string;
+}
+
+export type EquipmentInput = Omit<Equipment, "equipment_id">;
+
+// EQUIPMENT.status defaults to 'operational' and the scheduling service only
+// allocates 'operational' equipment. The other values need confirming with the backend owner.
+export const EQUIPMENT_STATUSES = ["operational", "maintenance", "out_of_service"] as const;
+export const EQUIPMENT_TYPES = ["Diagnostic", "Monitoring", "Procedure"] as const;
