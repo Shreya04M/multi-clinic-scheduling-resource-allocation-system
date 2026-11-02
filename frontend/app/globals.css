@@ -103,3 +103,12 @@ tbody tr:last-child td{border-bottom:none}
   .details{grid-template-columns:1fr}
   header.compact{padding:22px}
 }
+
+/* ---- Resource summary ---- */
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.summary-tile{border:1px solid #e1e8f2;border-radius:12px;padding:16px;background:#f8fafc}
+.summary-tile span{display:block;color:#667085;font-size:13px;min-height:34px}
+.summary-tile strong{display:block;font-size:30px;margin:6px 0 2px}
+.summary-tile small{color:#98a2b3;font-size:12px}
+@media(max-width:900px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.summary-grid{grid-template-columns:1fr}}

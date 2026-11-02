@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { DemoBanner, EmptyState, ErrorState, Field, LoadingState, Modal, PageHeader, Toast } from "../components/ui";
 import EquipmentForm from "../components/resources/EquipmentForm";
 import EquipmentTable from "../components/resources/EquipmentTable";
+import ResourceSummary from "../components/resources/ResourceSummary";
 import RoomForm from "../components/resources/RoomForm";
 import RoomTable from "../components/resources/RoomTable";
 import { MOCK_CLINICS } from "../lib/mock-reference";
@@ -120,6 +121,13 @@ export default function ResourcesPage() {
     <main className="module">
       <PageHeader eyebrow="CLINIC RESOURCE MANAGEMENT" title="Rooms & equipment" description="View and maintain clinic rooms and equipment records. Bookings are allocated by the scheduling service." />
       <DemoBanner>Room and equipment API endpoints do not exist yet. Records are local sample data based on database/seed.sql, and edits last only until the page is reloaded.</DemoBanner>
+
+      <ResourceSummary
+        rooms={roomsLoading || roomsError ? null : filteredRooms}
+        equipment={equipLoading || equipError ? null : filteredEquipment}
+        roomsFiltered={roomFiltersActive}
+        equipmentFiltered={equipFiltersActive}
+      />
 
       <section className="card" aria-labelledby="rooms-title">
         <div className="card-head">
