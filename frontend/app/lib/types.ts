@@ -62,3 +62,10 @@ export const APPOINTMENT_STATUSES = ["scheduled", "completed", "cancelled"] as c
 
 // APPOINTMENT.appointment_type values used in database/seed.sql (free VARCHAR(50)).
 export const APPOINTMENT_TYPES = ["Consultation", "Follow-up", "Procedure"] as const;
+
+export type RoomInput = Omit<Room, "room_id">;
+
+// ROOM.status defaults to 'available' and the scheduling service only books
+// rooms whose status is 'available'. The other values need confirming with the backend owner.
+export const ROOM_STATUSES = ["available", "maintenance", "unavailable"] as const;
+export const ROOM_TYPES = ["Consultation", "Examination", "Procedure"] as const;
