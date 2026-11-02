@@ -13,13 +13,20 @@ All protected routes use `Authorization: Bearer <JWT>`. Successful responses are
 | PATCH | `/users/{user_id}` | update email, role, or clinic | ADMIN |
 | PATCH | `/users/{user_id}/status` | activate or deactivate a user | ADMIN |
 | GET | `/dashboard` | aggregate statistics | authenticated |
+| GET | `/reference` | clinics, patients, doctors, rooms, and equipment for selectors | authenticated |
 | GET | `/appointments` | appointment list | authenticated |
 | POST | `/appointments` | transactional scheduling | admin, doctor, receptionist |
+| GET | `/patients` | list/search patients | authenticated |
+| GET | `/patients/{patient_id}` | retrieve a patient | authenticated |
+| POST | `/patients` | create a patient | admin, staff, receptionist |
+| PATCH | `/patients/{patient_id}` | update a patient | admin, staff, receptionist |
+| DELETE | `/patients/{patient_id}` | delete an unreferenced patient | admin, staff, receptionist |
 | POST | `/notes` | create clinical note | admin, doctor |
 | POST | `/notes/search` | authorized semantic search | authenticated |
 
 `POST /appointments` accepts `patient_id`, `doctor_id`, `clinic_id`, `room_id`,
-`appointment_date`, ISO `start_time` and `end_time`, and `equipment` as a list
+`appointment_date`, ISO `start_time` and `end_time`, optional `appointment_type`,
+and `equipment` as a list
 of equipment IDs. The service validates doctor availability, clinic
 association, room/doctor/equipment conflicts, and performs the appointment
 plus equipment-link inserts in one transaction. A conflict is never

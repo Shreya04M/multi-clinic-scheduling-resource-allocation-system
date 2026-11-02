@@ -44,7 +44,11 @@ information is included.
 Interactive documentation is available at `/docs`. Important routes include
 `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, ADMIN-only
 `/users` management, `GET /dashboard`, `GET /appointments`,
-`POST /appointments`, `GET/POST /notes`, and `POST /notes/search`.
+`POST /appointments`, `GET /reference`, patient CRUD at `/patients`,
+`GET/POST /notes`, and `POST /notes/search`. The Next.js patient and
+appointment modules use these APIs for persistent MySQL-backed data; the
+appointment form loads current clinics, patients, doctors, and rooms from
+`/reference`.
 
 Appointment creation locks the doctor, room, and requested equipment rows inside one transaction, checks availability and overlapping non-cancelled appointments, and only then inserts the appointment. Conflicts return HTTP 409.
 

@@ -1,10 +1,10 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ConfirmDialog, DemoBanner, EmptyState, ErrorState, Field, LoadingState, Modal, PageHeader, Toast } from "../components/ui";
+import { ConfirmDialog, EmptyState, ErrorState, Field, LoadingState, Modal, PageHeader, Toast } from "../components/ui";
 import PatientDetails from "../components/patients/PatientDetails";
 import PatientForm from "../components/patients/PatientForm";
 import PatientTable from "../components/patients/PatientTable";
-import { loadMockPatients } from "../lib/mock-patients";
+import { apiFetch } from "../lib/api";
 import { GENDER_OPTIONS, type Patient, type PatientInput } from "../lib/types";
 
 export default function PatientsPage() {
@@ -22,9 +22,7 @@ export default function PatientsPage() {
   const load = useCallback(() => {
     setLoading(true);
     setError("");
-    // Append ?simulate=error to the URL to preview the error state.
-    const simulateError = new URLSearchParams(window.location.search).get("simulate") === "error";
-    loadMockPatients(simulateError)
+    apiFetch<Patient[]>("/patients")
       .then(setPatients)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
@@ -47,32 +45,33 @@ export default function PatientsPage() {
     setGender("");
   };
 
-  const savePatient = (input: PatientInput) => {
+  const savePatient = async (input: PatientInput) => {
     if (editing === "new") {
-      // PATIENT.patient_id is not AUTO_INCREMENT; a real API would assign/validate it.
-      const nextId = patients.reduce((max, p) => Math.max(max, p.patient_id), 300) + 1;
-      setPatients(list => [...list, { patient_id: nextId, ...input }]);
-      setToast(`Demo only: ${input.first_name} ${input.last_name} was added on this page (ID ${nextId}) and not saved to MySQL.`);
+      const created = await apiFetch<Patient>("/patients", { method: "POST", body: JSON.stringify(input) });
+      setPatients(list => [...list, created]);
+      setToast(`${created.first_name} ${created.last_name} was added.`);
     } else if (editing) {
-      const updated = { ...editing, ...input };
+      const updated = await apiFetch<Patient>(`/patients/${editing.patient_id}`, { method: "PATCH", body: JSON.stringify(input) });
       setPatients(list => list.map(p => (p.patient_id === updated.patient_id ? updated : p)));
-      setToast(`Demo only: changes to ${updated.first_name} ${updated.last_name} were applied on this page, not saved to MySQL.`);
+      setToast(`${updated.first_name} ${updated.last_name} was updated.`);
     }
     setEditing(null);
   };
 
   const confirmDelete = () => {
     if (!toDelete) return;
-    setPatients(list => list.filter(p => p.patient_id !== toDelete.patient_id));
-    setToast(`Demo only: ${toDelete.first_name} ${toDelete.last_name} was removed from this page, not from MySQL.`);
-    setToDelete(null);
+    apiFetch<void>(`/patients/${toDelete.patient_id}`, { method: "DELETE" })
+      .then(() => {
+        setPatients(list => list.filter(p => p.patient_id !== toDelete.patient_id));
+        setToast(`${toDelete.first_name} ${toDelete.last_name} was deleted.`);
+        setToDelete(null);
+      })
+      .catch((e: Error) => setError(e.message));
   };
 
   return (
     <main className="module">
       <PageHeader eyebrow="PATIENT MANAGEMENT" title="Patients" description="View, search and maintain patient records across clinics." action={<button className="btn light" onClick={() => setEditing("new")}>+ Add patient</button>} />
-      <DemoBanner>No patient API endpoint exists yet. Records come from local sample data matching database/seed.sql, and changes last only until the page is reloaded.</DemoBanner>
-
       <section className="card" aria-labelledby="patient-list-title">
         <div className="card-head">
           <h2 id="patient-list-title">Patient records</h2>
@@ -120,7 +119,7 @@ export default function PatientsPage() {
       {toDelete && (
         <ConfirmDialog
           title="Delete patient?"
-          message={<>Delete <strong>{toDelete.first_name} {toDelete.last_name}</strong> (ID {toDelete.patient_id})? This is a demo action and only removes the record from this page.</>}
+          message={<>Delete <strong>{toDelete.first_name} {toDelete.last_name}</strong> (ID {toDelete.patient_id})? This cannot be undone if the patient has no related records.</>}
           confirmLabel="Delete patient"
           onConfirm={confirmDelete}
           onCancel={() => setToDelete(null)}

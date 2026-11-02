@@ -51,6 +51,10 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     body = text;
   }
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      window.dispatchEvent(new CustomEvent("auth-expired"));
+    }
     const fallback = response.status === 401 ? "You are not signed in, or your session has expired." : `Request failed with status ${response.status}.`;
     throw new ApiError(response.status, readDetail(body, fallback));
   }

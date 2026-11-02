@@ -1,11 +1,11 @@
 "use client";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Field } from "../ui";
-import { ApiError } from "../../lib/api";
+import { ApiError, apiFetch } from "../../lib/api";
 import { todayISO } from "../../lib/format";
 import { MOCK_PATIENTS } from "../../lib/mock-patients";
 import { MOCK_CLINICS, MOCK_DOCTORS, MOCK_ROOMS, doctorName } from "../../lib/mock-reference";
-import { APPOINTMENT_TYPES } from "../../lib/types";
+import { APPOINTMENT_TYPES, type ReferenceData } from "../../lib/types";
 
 /** Request body accepted by POST /appointments (backend/app/schemas.py AppointmentCreate). */
 export interface AppointmentRequest {
@@ -17,6 +17,7 @@ export interface AppointmentRequest {
   start_time: string;
   end_time: string;
   equipment: number[];
+  appointment_type: string | null;
 }
 
 interface Values {
@@ -66,8 +67,14 @@ export default function AppointmentForm({ mode, onSubmit, onCancel }: Props) {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<{ title: string; message: string } | null>(null);
+  const [reference, setReference] = useState<ReferenceData>({ patients: MOCK_PATIENTS, clinics: MOCK_CLINICS, doctors: MOCK_DOCTORS, rooms: MOCK_ROOMS, equipment: [] });
 
-  const rooms = useMemo(() => MOCK_ROOMS.filter(r => String(r.clinic_id) === values.clinic_id), [values.clinic_id]);
+  useEffect(() => {
+    if (mode !== "live") return;
+    apiFetch<ReferenceData>("/reference").then(setReference).catch((err: Error) => setServerError({ title: "Reference data unavailable", message: err.message }));
+  }, [mode]);
+
+  const rooms = useMemo(() => reference.rooms.filter(r => String(r.clinic_id) === values.clinic_id), [reference.rooms, values.clinic_id]);
 
   const set = (key: keyof Values) => (e: { target: { value: string } }) => {
     const next = { ...values, [key]: e.target.value };
@@ -97,6 +104,7 @@ export default function AppointmentForm({ mode, onSubmit, onCancel }: Props) {
           start_time: withSeconds(values.start_time),
           end_time: withSeconds(values.end_time),
           equipment: [],
+          appointment_type: values.appointment_type || null,
         },
         values.appointment_type || null,
       );
@@ -136,19 +144,19 @@ export default function AppointmentForm({ mode, onSubmit, onCancel }: Props) {
         <Field id="af-patient_id" label="Patient" required error={errors.patient_id}>
           <select id="af-patient_id" value={values.patient_id} onChange={set("patient_id")} {...aria("patient_id")}>
             <option value="">Select a patient</option>
-            {MOCK_PATIENTS.map(p => <option key={p.patient_id} value={p.patient_id}>{p.first_name} {p.last_name} (#{p.patient_id})</option>)}
+            {reference.patients.map(p => <option key={p.patient_id} value={p.patient_id}>{p.first_name} {p.last_name} (#{p.patient_id})</option>)}
           </select>
         </Field>
         <Field id="af-doctor_id" label="Doctor" required error={errors.doctor_id}>
           <select id="af-doctor_id" value={values.doctor_id} onChange={set("doctor_id")} {...aria("doctor_id")}>
             <option value="">Select a doctor</option>
-            {MOCK_DOCTORS.map(d => <option key={d.doctor_id} value={d.doctor_id}>{doctorName(d)}{d.specialization ? ` — ${d.specialization}` : ""}</option>)}
+            {reference.doctors.map(d => <option key={d.doctor_id} value={d.doctor_id}>{doctorName(d)}{d.specialization ? ` — ${d.specialization}` : ""}</option>)}
           </select>
         </Field>
         <Field id="af-clinic_id" label="Clinic" required error={errors.clinic_id}>
           <select id="af-clinic_id" value={values.clinic_id} onChange={set("clinic_id")} {...aria("clinic_id")}>
             <option value="">Select a clinic</option>
-            {MOCK_CLINICS.map(c => <option key={c.clinic_id} value={c.clinic_id}>{c.clinic_name}</option>)}
+            {reference.clinics.map(c => <option key={c.clinic_id} value={c.clinic_id}>{c.clinic_name}</option>)}
           </select>
         </Field>
         <Field id="af-room_id" label="Room" required error={errors.room_id} hint={values.clinic_id ? "Room availability is checked by the backend." : "Select a clinic first."}>
@@ -160,7 +168,7 @@ export default function AppointmentForm({ mode, onSubmit, onCancel }: Props) {
         <Field id="af-appointment_date" label="Appointment date" required error={errors.appointment_date}>
           <input id="af-appointment_date" type="date" min={todayISO()} value={values.appointment_date} onChange={set("appointment_date")} {...aria("appointment_date")} />
         </Field>
-        <Field id="af-appointment_type" label="Appointment type" hint="The current POST /appointments contract has no type field, so this is not sent yet.">
+        <Field id="af-appointment_type" label="Appointment type">
           <select id="af-appointment_type" value={values.appointment_type} onChange={set("appointment_type")}>
             <option value="">Not specified</option>
             {APPOINTMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}

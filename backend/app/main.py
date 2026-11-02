@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from .auth import create_token, current_user, hash_password, optional_user, require_roles, verify_password
 from .config import settings
 from .db import get_db
-from .schemas import AppointmentCreate, LoginRequest, NoteCreate, RegisterRequest, SearchRequest, UserUpdate
+from .schemas import AppointmentCreate, LoginRequest, NoteCreate, PatientCreate, PatientUpdate, RegisterRequest, SearchRequest, UserUpdate
 from .services.scheduling import create_appointment
 
 app = FastAPI(title="Multi-Clinic Scheduling System", version="1.0.0")
@@ -164,6 +164,91 @@ def dashboard(user=Depends(current_user), db: Session = Depends(get_db)):
         "patients": db.execute(text("SELECT COUNT(*) FROM PATIENT")).scalar(),
         "doctors": db.execute(text("SELECT COUNT(*) FROM DOCTOR WHERE status='active'")).scalar(),
     }
+
+
+@app.get("/reference")
+def reference(user=Depends(current_user), db: Session = Depends(get_db)):
+    clinic_filter = "" if user["role"] == "ADMIN" else " WHERE clinic_id=:clinic_id"
+    params = {} if user["role"] == "ADMIN" else {"clinic_id": user.get("clinic_id")}
+    clinics = db.execute(text(f"SELECT clinic_id, clinic_name FROM CLINIC{clinic_filter} ORDER BY clinic_name"), params).mappings().all()
+    doctors = db.execute(
+        text(
+            "SELECT DISTINCT d.doctor_id, d.first_name, d.last_name, d.specialization "
+            "FROM DOCTOR d JOIN DOCTOR_CLINIC dc ON dc.doctor_id=d.doctor_id "
+            "WHERE d.status='active' AND dc.status='active' "
+            + ("" if user["role"] == "ADMIN" else "AND dc.clinic_id=:clinic_id ")
+            + "ORDER BY d.last_name, d.first_name"
+        ),
+        params,
+    ).mappings().all()
+    rooms = db.execute(text(f"SELECT room_id, clinic_id, room_number, room_type, capacity, status FROM ROOM{clinic_filter} ORDER BY clinic_id, room_number"), params).mappings().all()
+    equipment = db.execute(text(f"SELECT equipment_id, clinic_id, equipment_type, equipment_name, status FROM EQUIPMENT{clinic_filter} ORDER BY clinic_id, equipment_name"), params).mappings().all()
+    patients = db.execute(text("SELECT patient_id, first_name, last_name, date_of_birth, gender, phone, email, address FROM PATIENT ORDER BY last_name, first_name, patient_id")).mappings().all()
+    return {"patients": [dict(row) for row in patients], "clinics": [dict(row) for row in clinics], "doctors": [dict(row) for row in doctors], "rooms": [dict(row) for row in rooms], "equipment": [dict(row) for row in equipment]}
+
+
+@app.get("/patients")
+def patients(search: str | None = None, gender: str | None = None, user=Depends(current_user), db: Session = Depends(get_db)):
+    clauses = []
+    params = {}
+    if search:
+        clauses.append("(CAST(patient_id AS CHAR) LIKE :search OR first_name LIKE :search OR last_name LIKE :search)")
+        params["search"] = f"%{search}%"
+    if gender:
+        clauses.append("gender=:gender")
+        params["gender"] = gender
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    return [dict(row) for row in db.execute(text(f"SELECT patient_id, first_name, last_name, date_of_birth, gender, phone, email, address FROM PATIENT{where} ORDER BY last_name, first_name, patient_id"), params).mappings().all()]
+
+
+@app.get("/patients/{patient_id}")
+def patient(patient_id: int, user=Depends(current_user), db: Session = Depends(get_db)):
+    row = db.execute(text("SELECT patient_id, first_name, last_name, date_of_birth, gender, phone, email, address FROM PATIENT WHERE patient_id=:patient_id"), {"patient_id": patient_id}).mappings().first()
+    if not row:
+        raise HTTPException(404, "Patient not found")
+    return dict(row)
+
+
+@app.post("/patients", status_code=201)
+def create_patient(request: PatientCreate, user=Depends(require_roles("ADMIN", "STAFF", "RECEPTIONIST")), db: Session = Depends(get_db)):
+    try:
+        with db.begin():
+            patient_id = request.patient_id
+            if patient_id is None:
+                patient_id = db.execute(text("SELECT COALESCE(MAX(patient_id), 0) + 1 FROM PATIENT FOR UPDATE")).scalar_one()
+            db.execute(
+                text("INSERT INTO PATIENT (patient_id, first_name, last_name, date_of_birth, gender, phone, email, address) VALUES (:patient_id, :first_name, :last_name, :date_of_birth, :gender, :phone, :email, :address)"),
+                {"patient_id": patient_id, **request.model_dump(exclude={"patient_id"})},
+            )
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Patient ID already exists or a related constraint failed") from exc
+    return patient(patient_id, user, db)
+
+
+@app.patch("/patients/{patient_id}")
+def update_patient(patient_id: int, request: PatientUpdate, user=Depends(require_roles("ADMIN", "STAFF", "RECEPTIONIST")), db: Session = Depends(get_db)):
+    changes = request.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(422, "At least one field is required")
+    assignments = ", ".join(f"{field}=:{field}" for field in changes)
+    result = db.execute(text(f"UPDATE PATIENT SET {assignments} WHERE patient_id=:patient_id"), {**changes, "patient_id": patient_id})
+    db.commit()
+    if result.rowcount == 0:
+        raise HTTPException(404, "Patient not found")
+    return patient(patient_id, user, db)
+
+
+@app.delete("/patients/{patient_id}", status_code=204)
+def delete_patient(patient_id: int, user=Depends(require_roles("ADMIN", "STAFF", "RECEPTIONIST")), db: Session = Depends(get_db)):
+    try:
+        result = db.execute(text("DELETE FROM PATIENT WHERE patient_id=:patient_id"), {"patient_id": patient_id})
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Patient cannot be deleted while referenced by appointments or notes") from exc
+    if result.rowcount == 0:
+        raise HTTPException(404, "Patient not found")
 
 @app.post("/appointments", status_code=201)
 def schedule(request: AppointmentCreate, user=Depends(current_user), db: Session = Depends(get_db)):

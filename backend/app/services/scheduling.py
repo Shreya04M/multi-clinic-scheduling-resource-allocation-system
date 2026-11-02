@@ -117,9 +117,9 @@ def create_appointment(db: Session, request: AppointmentCreate) -> int:
             text(
                 "INSERT INTO APPOINTMENT "
                 "(patient_id, doctor_id, clinic_id, room_id, appointment_date, "
-                "start_time, end_time, status) "
+                "start_time, end_time, appointment_type, status) "
                 "VALUES (:patient_id, :doctor_id, :clinic_id, :room_id, "
-                ":appointment_date, :start_time, :end_time, 'scheduled')"
+                ":appointment_date, :start_time, :end_time, :appointment_type, 'scheduled')"
             ),
             {
                 "patient_id": request.patient_id,
@@ -129,6 +129,7 @@ def create_appointment(db: Session, request: AppointmentCreate) -> int:
                 "appointment_date": request.appointment_date,
                 "start_time": request.start_time,
                 "end_time": request.end_time,
+                "appointment_type": request.appointment_type,
             },
         )
         appointment_id = result.lastrowid

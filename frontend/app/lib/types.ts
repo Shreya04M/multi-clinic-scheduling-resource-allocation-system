@@ -40,6 +40,22 @@ export interface Room {
   status: string;
 }
 
+export interface Equipment {
+  equipment_id: number;
+  clinic_id: number;
+  equipment_type: string | null;
+  equipment_name: string;
+  status: string;
+}
+
+export interface ReferenceData {
+  patients: Patient[];
+  clinics: Clinic[];
+  doctors: Doctor[];
+  rooms: Room[];
+  equipment: Equipment[];
+}
+
 /**
  * Row shape returned by GET /appointments, which selects from the
  * appointment_details view (database/views.sql).

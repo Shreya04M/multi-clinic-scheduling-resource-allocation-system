@@ -52,7 +52,7 @@ const orNull = (s: string) => (s.trim() === "" ? null : s.trim());
 
 interface Props {
   initial?: Patient;
-  onSubmit: (input: PatientInput) => void;
+  onSubmit: (input: PatientInput) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -67,21 +67,32 @@ export default function PatientForm({ initial, onSubmit, onCancel }: Props) {
     if (submitted) setErrors(validatePatient(next));
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState("");
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
     const found = validatePatient(values);
     setErrors(found);
     if (Object.keys(found).length > 0) return;
-    onSubmit({
-      first_name: values.first_name.trim(),
-      last_name: values.last_name.trim(),
-      date_of_birth: values.date_of_birth,
-      gender: orNull(values.gender),
-      phone: orNull(values.phone),
-      email: orNull(values.email),
-      address: orNull(values.address),
-    });
+    setSubmitting(true);
+    setServerError("");
+    try {
+      await onSubmit({
+        first_name: values.first_name.trim(),
+        last_name: values.last_name.trim(),
+        date_of_birth: values.date_of_birth,
+        gender: orNull(values.gender),
+        phone: orNull(values.phone),
+        email: orNull(values.email),
+        address: orNull(values.address),
+      });
+    } catch (e) {
+      setServerError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const errorCount = Object.keys(errors).length;
@@ -89,6 +100,7 @@ export default function PatientForm({ initial, onSubmit, onCancel }: Props) {
 
   return (
     <form onSubmit={handleSubmit} noValidate>
+      {serverError && <div className="form-error" role="alert">{serverError}</div>}
       {submitted && errorCount > 0 && <div className="form-error" role="alert">Please fix {errorCount} field{errorCount > 1 ? "s" : ""} highlighted below.</div>}
       <div className="form-grid">
         <Field id="pf-first_name" label="First name" required error={errors.first_name}>
@@ -119,8 +131,8 @@ export default function PatientForm({ initial, onSubmit, onCancel }: Props) {
         </div>
       </div>
       <div className="form-actions">
-        <button type="button" className="btn secondary" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="btn">{initial ? "Save changes" : "Add patient"}</button>
+        <button type="button" className="btn secondary" onClick={onCancel} disabled={submitting}>Cancel</button>
+        <button type="submit" className="btn" disabled={submitting}>{submitting ? "Saving…" : initial ? "Save changes" : "Add patient"}</button>
       </div>
     </form>
   );

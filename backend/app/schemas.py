@@ -44,6 +44,7 @@ class AppointmentCreate(BaseModel):
     appointment_date: date
     start_time: time
     end_time: time
+    appointment_type: str | None = Field(default=None, max_length=50)
     equipment: list[int] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -51,6 +52,27 @@ class AppointmentCreate(BaseModel):
         if self.end_time <= self.start_time:
             raise ValueError("end_time must be after start_time")
         return self
+
+
+class PatientCreate(BaseModel):
+    patient_id: int | None = Field(default=None, gt=0)
+    first_name: str = Field(min_length=1, max_length=50)
+    last_name: str = Field(min_length=1, max_length=50)
+    date_of_birth: date
+    gender: str | None = Field(default=None, max_length=20)
+    phone: str | None = Field(default=None, max_length=20)
+    email: str | None = Field(default=None, max_length=150)
+    address: str | None = Field(default=None, max_length=255)
+
+
+class PatientUpdate(BaseModel):
+    first_name: str | None = Field(default=None, min_length=1, max_length=50)
+    last_name: str | None = Field(default=None, min_length=1, max_length=50)
+    date_of_birth: date | None = None
+    gender: str | None = Field(default=None, max_length=20)
+    phone: str | None = Field(default=None, max_length=20)
+    email: str | None = Field(default=None, max_length=150)
+    address: str | None = Field(default=None, max_length=255)
 
 
 class NoteCreate(BaseModel):
