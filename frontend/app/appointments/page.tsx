@@ -1,6 +1,6 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-import { DemoBanner, EmptyState, ErrorState, LoadingState, Modal, PageHeader, Toast } from "../components/ui";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { DemoBanner, EmptyState, Field, ErrorState, LoadingState, Modal, PageHeader, Toast } from "../components/ui";
 import AppointmentForm, { type AppointmentRequest } from "../components/appointments/AppointmentForm";
 import AppointmentDetails from "../components/appointments/AppointmentDetails";
 import AppointmentTable from "../components/appointments/AppointmentTable";
@@ -8,7 +8,7 @@ import { API_URL, apiFetch } from "../lib/api";
 import { MOCK_APPOINTMENTS } from "../lib/mock-appointments";
 import { MOCK_PATIENTS } from "../lib/mock-patients";
 import { MOCK_DOCTORS, MOCK_ROOMS, clinicName } from "../lib/mock-reference";
-import type { AppointmentRecord } from "../lib/types";
+import { APPOINTMENT_STATUSES, type AppointmentRecord } from "../lib/types";
 
 type Source = "live" | "demo";
 
@@ -23,6 +23,11 @@ export default function AppointmentsPage() {
   const [viewing, setViewing] = useState<AppointmentRecord | null>(null);
   const [booking, setBooking] = useState(false);
   const [toast, setToast] = useState("");
+  const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [doctorFilter, setDoctorFilter] = useState("");
+  const [clinicFilter, setClinicFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const loadLive = useCallback(() => {
     setSource("live");
@@ -46,6 +51,34 @@ export default function AppointmentsPage() {
     if (new URLSearchParams(window.location.search).get("source") === "demo") showDemo();
     else loadLive();
   }, [loadLive, showDemo]);
+
+  // Filter options come from the loaded records, so they work for live and demo data alike.
+  const doctorOptions = useMemo(() => Array.from(new Set(appointments.map(a => a.doctor_name))).sort(), [appointments]);
+  const clinicOptions = useMemo(() => Array.from(new Set(appointments.map(a => a.clinic_name))).sort(), [appointments]);
+  const statusOptions = useMemo(() => {
+    const extra = appointments.map(a => a.status.toLowerCase()).filter(s => !(APPOINTMENT_STATUSES as readonly string[]).includes(s));
+    return [...APPOINTMENT_STATUSES, ...Array.from(new Set(extra))];
+  }, [appointments]);
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase().replace(/^#/, "");
+    return appointments.filter(a =>
+      (!term || String(a.appointment_id).includes(term) || a.patient_name.toLowerCase().includes(term)) &&
+      (!dateFilter || a.appointment_date.slice(0, 10) === dateFilter) &&
+      (!doctorFilter || a.doctor_name === doctorFilter) &&
+      (!clinicFilter || a.clinic_name === clinicFilter) &&
+      (!statusFilter || a.status.toLowerCase() === statusFilter),
+    );
+  }, [appointments, search, dateFilter, doctorFilter, clinicFilter, statusFilter]);
+
+  const filtersActive = Boolean(search.trim() || dateFilter || doctorFilter || clinicFilter || statusFilter);
+  const clearFilters = () => {
+    setSearch("");
+    setDateFilter("");
+    setDoctorFilter("");
+    setClinicFilter("");
+    setStatusFilter("");
+  };
 
   const submitBooking = async (request: AppointmentRequest, appointmentType: string | null) => {
     if (source === "live") {
@@ -97,14 +130,48 @@ export default function AppointmentsPage() {
           <h2 id="appointment-list-title">Appointment list</h2>
         </div>
 
+        <div className="toolbar" role="search">
+          <div className="field grow">
+            <label htmlFor="appt-search">Search by appointment ID or patient name</label>
+            <input id="appt-search" type="search" placeholder="e.g. 804 or Kavya" value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          <Field id="appt-date" label="Date">
+            <input id="appt-date" type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
+          </Field>
+          <Field id="appt-doctor" label="Doctor">
+            <select id="appt-doctor" value={doctorFilter} onChange={e => setDoctorFilter(e.target.value)}>
+              <option value="">All doctors</option>
+              {doctorOptions.map(d => <option key={d} value={d}>Dr. {d}</option>)}
+            </select>
+          </Field>
+          <Field id="appt-clinic" label="Clinic">
+            <select id="appt-clinic" value={clinicFilter} onChange={e => setClinicFilter(e.target.value)}>
+              <option value="">All clinics</option>
+              {clinicOptions.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          <Field id="appt-status" label="Status">
+            <select id="appt-status" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              <option value="">All statuses</option>
+              {statusOptions.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+            </select>
+          </Field>
+          <button className="btn secondary" onClick={clearFilters} disabled={!filtersActive}>Clear filters</button>
+        </div>
+
         {loading ? (
           <LoadingState label="Loading appointments…" />
         ) : error ? (
           <ErrorState message={`Could not load appointments: ${error}`} onRetry={loadLive} extra={<button className="btn secondary" onClick={showDemo}>Use demo data</button>} />
         ) : appointments.length === 0 ? (
           <EmptyState title="No appointments" message="There are no appointments to show yet." />
+        ) : filtered.length === 0 ? (
+          <EmptyState title="No matching appointments" message="No appointments match the current search or filters." action={<button className="btn secondary" onClick={clearFilters}>Clear filters</button>} />
         ) : (
-          <AppointmentTable appointments={appointments} onView={setViewing} />
+          <>
+            <AppointmentTable appointments={filtered} onView={setViewing} />
+            <p className="result-count">Showing {filtered.length} of {appointments.length} appointments</p>
+          </>
         )}
       </section>
 
