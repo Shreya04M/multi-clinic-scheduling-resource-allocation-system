@@ -3,7 +3,10 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 from .config import settings
+from .db import get_db
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
@@ -33,12 +36,22 @@ def _decode_token(token: str | None) -> dict:
         raise credentials from exc
 
 
-def current_user(token: str | None = Depends(oauth2_scheme)) -> dict:
-    return _decode_token(token)
+def current_user(token: str | None = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> dict:
+    user = _decode_token(token)
+    profile = db.execute(
+        text(
+            "SELECT user_id, role, clinic_id FROM APP_USER "
+            "WHERE user_id=:user_id AND status='active'"
+        ),
+        {"user_id": int(user["sub"])},
+    ).mappings().first()
+    if not profile:
+        raise HTTPException(401, "Account is inactive or unavailable")
+    return {**user, **dict(profile), "sub": user["sub"]}
 
 
-def optional_user(token: str | None = Depends(oauth2_scheme)) -> dict | None:
-    return _decode_token(token) if token else None
+def optional_user(token: str | None = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> dict | None:
+    return current_user(token, db) if token else None
 
 
 def require_roles(*roles: str):

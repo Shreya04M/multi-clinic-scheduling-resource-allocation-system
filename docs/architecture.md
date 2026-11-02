@@ -10,10 +10,15 @@ avoiding duplicate IDs under concurrent requests. Scheduling also validates
 the requested weekday and full time range against active
 `DOCTOR_AVAILABILITY` rows.
 
-Clinical-note creation currently persists to MySQL only. The standalone
-Chroma synchronization utilities support upsert/delete, but note create,
-update, and delete API lifecycle hooks are not yet present; MySQL remains the
-source of truth until those hooks are added.
+Clinical-note creation commits the note and a `NOTE_VECTOR_OUTBOX` row to
+MySQL in the same transaction, then attempts an idempotent Chroma upsert using
+the MySQL-generated ID. If Chroma is unavailable, the API reports `503` while
+the pending outbox row remains recoverable. Calling
+`synchronize_pending_notes` retries pending rows, records attempts and the
+last error, and marks successful rows as synced.
+Semantic search uses Chroma only to rank candidates, then re-reads each note
+from MySQL with a clinic-scoped authorization predicate. Missing or deleted
+SQL notes are omitted from results.
 
 `APP_USER` is the application identity table. `ADMIN` users are
 clinic-unscoped administrators; `STAFF` users are assigned to one clinic.

@@ -218,13 +218,26 @@ def create_note(request: NoteCreate, user=Depends(current_user), db: Session = D
         },
     )
     note_id = db.execute(text("SELECT LAST_INSERT_ID()")).scalar_one()
+    db.execute(
+        text("INSERT INTO NOTE_VECTOR_OUTBOX (note_id) VALUES (:note_id)"),
+        {"note_id": note_id},
+    )
     db.commit()
+    try:
+        from vector_store.sync import synchronize_pending_notes
+        if synchronize_pending_notes(db, limit=1) != 1:
+            raise RuntimeError("Vector synchronization is pending")
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(
+            503,
+            "Clinical note was saved, but vector synchronization is pending; retry synchronization",
+        ) from exc
     return {"note_id": note_id}
 
 @app.post("/notes/search")
-def search_notes(request: SearchRequest, user=Depends(current_user)):
+def search_notes(request: SearchRequest, user=Depends(current_user), db: Session = Depends(get_db)):
     from vector_store.search import semantic_search
     try:
-        return semantic_search(request.query, request.top_k, user)
-    except RuntimeError as exc:
+        return semantic_search(request.query, request.top_k, user, db)
+    except (RuntimeError, ValueError) as exc:
         raise HTTPException(503, str(exc)) from exc

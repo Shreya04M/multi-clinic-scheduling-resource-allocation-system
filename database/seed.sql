@@ -1,6 +1,8 @@
 USE clinic_management;
 
-INSERT INTO DOCTOR
+START TRANSACTION;
+
+INSERT IGNORE INTO DOCTOR
 (doctor_id, first_name, last_name, specialization, phone, email, license_number, status)
 VALUES
 (101, 'Ananya', 'Rao', 'Cardiology', '9876543210', 'ananya.rao@clinic.com', 'LIC101', 'active'),
@@ -9,7 +11,7 @@ VALUES
 (104, 'Arjun', 'Menon', 'Orthopedics', '9876543213', 'arjun.menon@clinic.com', 'LIC104', 'active'),
 (105, 'Priya', 'Iyer', 'General Medicine', '9876543214', 'priya.iyer@clinic.com', 'LIC105', 'active');
 
-INSERT INTO CLINIC
+INSERT IGNORE INTO CLINIC
 (clinic_id, clinic_name, address, phone, email, status)
 VALUES
 (201, 'PES City Care Clinic', 'Electronic City, Bengaluru', '08040002001', 'citycare@clinic.com', 'active'),
@@ -17,7 +19,7 @@ VALUES
 (203, 'LifeCare Medical Centre', 'JP Nagar, Bengaluru', '08040002003', 'lifecare@clinic.com', 'active'),
 (204, 'MediPlus Clinic', 'Indiranagar, Bengaluru', '08040002004', 'mediplus@clinic.com', 'active');
 
-INSERT INTO PATIENT
+INSERT IGNORE INTO PATIENT
 (patient_id, first_name, last_name, date_of_birth, gender, phone, email, address)
 VALUES
 (301, 'Kavya', 'Sharma', '2002-05-14', 'Female', '9876501001', 'kavya.sharma@email.com', 'Electronic City, Bengaluru'),
@@ -27,7 +29,7 @@ VALUES
 (305, 'Nisha', 'Shah', '2000-12-30', 'Female', '9876501005', 'nisha.shah@email.com', 'Whitefield, Bengaluru'),
 (306, 'Vikram', 'Joshi', '1992-04-18', 'Male', '9876501006', 'vikram.joshi@email.com', 'HSR Layout, Bengaluru');
 
-INSERT INTO MEDICINE
+INSERT IGNORE INTO MEDICINE
 (medicine_id, medicine_name, generic_name, category)
 VALUES
 (401, 'Paracetamol', 'Acetaminophen', 'Analgesic'),
@@ -39,7 +41,7 @@ VALUES
 (407, 'Metformin', 'Metformin Hydrochloride', 'Antidiabetic'),
 (408, 'Amlodipine', 'Amlodipine', 'Antihypertensive');
 
-INSERT INTO DOCTOR_AVAILABILITY
+INSERT IGNORE INTO DOCTOR_AVAILABILITY
 (availability_id, doctor_id, day_of_week, start_time, end_time, status)
 VALUES
 (501, 101, 'Monday', '09:00:00', '13:00:00', 'active'),
@@ -53,7 +55,7 @@ VALUES
 (509, 105, 'Wednesday', '10:00:00', '14:00:00', 'active'),
 (510, 105, 'Saturday', '09:00:00', '12:00:00', 'active');
 
-INSERT INTO DOCTOR_CLINIC
+INSERT IGNORE INTO DOCTOR_CLINIC
 (doctor_id, clinic_id, start_date, end_date, status)
 VALUES
 (101, 201, '2026-01-01', NULL, 'active'),
@@ -64,7 +66,7 @@ VALUES
 (101, 204, '2026-01-01', NULL, 'active'),
 (103, 204, '2026-01-01', NULL, 'active');
 
-INSERT INTO ROOM
+INSERT IGNORE INTO ROOM
 (room_id, clinic_id, room_number, room_type, capacity, status)
 VALUES
 (601, 201, '101', 'Consultation', 2, 'available'),
@@ -76,7 +78,7 @@ VALUES
 (607, 204, '401', 'Consultation', 2, 'available'),
 (608, 204, '402', 'Procedure', 4, 'available');
 
-INSERT INTO EQUIPMENT
+INSERT IGNORE INTO EQUIPMENT
 (equipment_id, clinic_id, equipment_type, equipment_name, status)
 VALUES
 (701, 201, 'Diagnostic', 'ECG Machine', 'operational'),
@@ -88,7 +90,7 @@ VALUES
 (707, 204, 'Diagnostic', 'Dermatoscope', 'operational'),
 (708, 204, 'Monitoring', 'Pulse Oximeter', 'operational');
 
-INSERT INTO APPOINTMENT
+INSERT IGNORE INTO APPOINTMENT
 (appointment_id, patient_id, doctor_id, clinic_id, room_id, appointment_date, start_time, end_time, appointment_type, status)
 VALUES
 (801, 301, 101, 201, 601, '2026-10-05', '09:00:00', '09:30:00', 'Consultation', 'scheduled'),
@@ -100,13 +102,13 @@ VALUES
 (807, 301, 103, 204, 608, '2026-10-09', '14:00:00', '14:30:00', 'Follow-up', 'scheduled'),
 (808, 302, 104, 202, 604, '2026-10-13', '09:00:00', '10:00:00', 'Procedure', 'scheduled');
 
-INSERT INTO APPOINTMENT_EQUIPMENT
+INSERT IGNORE INTO APPOINTMENT_EQUIPMENT
 (appointment_id, equipment_id)
 VALUES
-(801, 701), (801, 702), (802, 702), (803, 707), (804, 704),
-(805, 705), (805, 706), (806, 701), (807, 707), (808, 704);
+(801, 701), (801, 702), (802, 702), (803, 703), (804, 704),
+(805, 705), (805, 706), (806, 707), (807, 707), (808, 704);
 
-INSERT INTO PRESCRIPTION
+INSERT IGNORE INTO PRESCRIPTION
 (prescription_id, doctor_id, patient_id, appointment_id, prescription_date, status)
 VALUES
 (1001, 101, 301, 801, '2026-10-05', 'active'),
@@ -116,7 +118,7 @@ VALUES
 (1005, 105, 305, 805, '2026-10-07', 'active'),
 (1006, 101, 306, 806, '2026-10-08', 'active');
 
-INSERT INTO PRESCRIPTION_MEDICINE
+INSERT IGNORE INTO PRESCRIPTION_MEDICINE
 (prescription_id, medicine_id, dosage, frequency, duration, instructions)
 VALUES
 (1001, 401, '500 mg', 'Twice daily', '5 days', 'Take after food'),
@@ -129,7 +131,7 @@ VALUES
 (1005, 408, '5 mg', 'Once daily', '30 days', 'Take in the morning'),
 (1006, 401, '500 mg', 'As needed', '3 days', 'Take after food');
 
-INSERT INTO FOLLOW_UP
+INSERT IGNORE INTO FOLLOW_UP
 (follow_up_id, completed_appointment_id, doctor_id, patient_id, recommended_date, status)
 VALUES
 (1101, 801, 101, 301, '2026-11-05', 'pending'),
@@ -139,7 +141,7 @@ VALUES
 (1105, 805, 105, 305, '2026-11-07', 'pending'),
 (1106, 806, 101, 306, '2026-11-08', 'pending');
 
-INSERT INTO CLINICAL_NOTE
+INSERT IGNORE INTO CLINICAL_NOTE
 (note_id, appointment_id, doctor_id, patient_id, created_at, note_text, embedding)
 VALUES
 (901, 801, 101, 301, '2026-10-05 09:35:00', 'Chest discomfort; ECG advised.', NULL),
@@ -148,3 +150,5 @@ VALUES
 (904, 804, 104, 304, '2026-10-06 10:10:00', 'Knee pain; procedure completed.', NULL),
 (905, 805, 105, 305, '2026-10-07 10:35:00', 'Routine checkup completed.', NULL),
 (906, 806, 101, 306, '2026-10-08 09:35:00', 'Follow-up completed; condition stable.', NULL);
+
+COMMIT;

@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     frontend_origin: str = "http://localhost:3000"
     chroma_path: str = "./chroma_data"
     embedding_model: str = "all-MiniLM-L6-v2"
+    embedding_dimension: int = 384
     search_top_k: int = 5
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

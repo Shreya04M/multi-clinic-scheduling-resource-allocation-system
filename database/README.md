@@ -5,7 +5,7 @@ Multi-Clinic Patient Scheduling and Resource Allocation System.
 
 ## Files
 
-- `schema.sql` creates `clinic_management` and the 15 tables in foreign-key
+- `schema.sql` creates `clinic_management` and the 16 tables in foreign-key
   dependency order.
   `APP_USER` stores only bcrypt password hashes, supports `ADMIN` and `STAFF`
   roles, and optionally links staff to a clinic. Email is unique and account
@@ -16,6 +16,9 @@ Multi-Clinic Patient Scheduling and Resource Allocation System.
 - `seed.sql` inserts the supplied doctors, clinics, patients, medicines,
   availability records, relationships, rooms, equipment, appointments,
   prescriptions, follow-ups, and clinical notes.
+  It uses `INSERT IGNORE` inside one transaction, so reruns do not duplicate
+  seeded primary or unique keys and existing user-created rows are preserved.
+  A duplicate seed key is skipped rather than replacing an existing row.
 - `functions.sql` creates `appointment_duration` and contains its example
   `SELECT`.
 - `procedures.sql` creates `GetPatientAppointments` and contains its example
@@ -42,7 +45,7 @@ also supported.
 Execute the setup scripts in this order:
 
 1. `schema.sql`
-2. `seed.sql`
+2. `seed.sql` (safe to rerun; do not use `test_operations.sql` as setup)
 3. `functions.sql`
 4. `procedures.sql`
 5. `views.sql`
@@ -50,6 +53,7 @@ Execute the setup scripts in this order:
 7. `indexes.sql`
 8. `queries.sql` (run individual queries as required)
 9. `test_operations.sql` (testing only)
+10. `verify.sql` (non-destructive verification queries)
 
 In MySQL Workbench, open each file, select the intended statements or the
 whole script, and click the lightning-bolt Execute button. Workbench
@@ -82,6 +86,37 @@ one transaction with row locks.
 The repository does not include a MySQL server or credentials. Run the
 backend tests for isolated validation, then execute the SQL scripts and
 integration tests against a disposable MySQL 8.0.16+ database.
+
+## Verification status
+
+Static inspection confirms the 14 domain tables plus the application-only
+`APP_USER` table, generated appointment and clinical-note IDs, foreign keys,
+checks, views, routines, trigger, indexes, and FULLTEXT definitions. Live
+execution is currently **BLOCKED** because no MySQL client/server is available
+in the development environment. Do not report SQL execution, constraint
+enforcement, trigger behavior, or FULLTEXT creation as passing until the
+following safe verification is run against a disposable MySQL 8.0.16+
+database:
+
+```powershell
+mysql -u <user> -p -e "CREATE DATABASE clinic_management_audit;"
+mysql -u <user> -p clinic_management_audit < database/schema.sql
+mysql -u <user> -p clinic_management_audit < database/seed.sql
+mysql -u <user> -p clinic_management_audit < database/functions.sql
+mysql -u <user> -p clinic_management_audit < database/procedures.sql
+mysql -u <user> -p clinic_management_audit < database/views.sql
+mysql -u <user> -p clinic_management_audit < database/triggers.sql
+mysql -u <user> -p clinic_management_audit < database/indexes.sql
+mysql -u <user> -p clinic_management_audit < database/queries.sql
+mysql -u <user> -p clinic_management_audit < database/verify.sql
+```
+
+The seed is non-destructive and rerunnable. The corrected equipment links use
+equipment from the appointment's clinic, and the verification query reports
+any remaining cross-clinic assignments. The database trigger
+`validate_appointment_equipment_clinic` rejects new mismatches. Use a
+disposable audit database and do not run `test_operations.sql` against
+project data.
 
 ## Corrections and manual attention
 

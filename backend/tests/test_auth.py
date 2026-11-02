@@ -172,6 +172,30 @@ def test_invalid_and_expired_tokens_are_rejected(monkeypatch):
     assert expired_error.value.status_code == 401
 
 
+def test_active_user_with_valid_token_is_reloaded_from_database(monkeypatch):
+    secret = "a" * 32
+    monkeypatch.setattr(settings, "jwt_secret", secret)
+    token = auth.create_token("7", "STAFF", 201)
+    database = FakeDatabase([{"user_id": 7, "role": "STAFF", "clinic_id": 201}])
+
+    user = auth.current_user(token, database)
+
+    assert user["sub"] == "7"
+    assert user["role"] == "STAFF"
+
+
+def test_deactivated_user_with_previous_token_is_rejected(monkeypatch):
+    secret = "a" * 32
+    monkeypatch.setattr(settings, "jwt_secret", secret)
+    token = auth.create_token("7", "STAFF", 201)
+    database = FakeDatabase([])
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth.current_user(token, database)
+
+    assert exc_info.value.status_code == 401
+
+
 def test_me_returns_safe_profile_without_password_hash():
     database = FakeDatabase(
         [

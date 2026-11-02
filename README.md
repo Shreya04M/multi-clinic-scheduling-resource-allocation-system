@@ -55,6 +55,19 @@ The backend regression suite can run without a database; live MySQL
 connectivity and SQL feature execution require a configured disposable MySQL
 8.0.16+ instance.
 
+## Verification status
+
+The current isolated backend/vector suite passes with `pytest backend/tests -q`
+(24 passed). This is not a live MySQL or Chroma deployment test. MySQL
+execution is currently blocked because no local MySQL client/server is
+available. Run the disposable-database commands in
+[`database/README.md`](database/README.md) before claiming live SQL, trigger,
+constraint, or FULLTEXT verification.
+
+Clinical notes use a MySQL `NOTE_VECTOR_OUTBOX` record for retryable,
+idempotent Chroma synchronization. SQL commits remain authoritative, and
+deactivated accounts are rejected even when presenting an older valid JWT.
+
 ## Semantic search
 
 `vector_store/sync.py` indexes eligible note text using `all-MiniLM-L6-v2` (384-dimensional embeddings) and stable SQL note IDs. Chroma uses cosine distance and a configurable top-k. Search results are resolved back through MySQL and authorized by the requesting user's role and clinic. Missing Chroma or model services produce an explicit 503 rather than exposing unverified results. Updated notes are upserted; deleted notes can be removed with the synchronization utility.

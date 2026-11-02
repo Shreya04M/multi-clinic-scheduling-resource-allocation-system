@@ -151,6 +151,17 @@ CREATE TABLE CLINICAL_NOTE (
     FOREIGN KEY (patient_id) REFERENCES PATIENT(patient_id)
 );
 
+CREATE TABLE NOTE_VECTOR_OUTBOX (
+    note_id INT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    attempts INT NOT NULL DEFAULT 0,
+    last_error VARCHAR(500),
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (note_id),
+    FOREIGN KEY (note_id) REFERENCES CLINICAL_NOTE(note_id),
+    CHECK (status IN ('pending', 'synced'))
+);
+
 CREATE TABLE PRESCRIPTION (
     prescription_id INT NOT NULL,
     doctor_id INT NOT NULL,

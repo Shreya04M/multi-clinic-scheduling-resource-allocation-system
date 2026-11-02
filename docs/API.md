@@ -33,6 +33,21 @@ cover request validation and scheduling decision paths; live database
 connectivity and SQL-object execution must be verified against a configured
 MySQL 8.0.16+ instance.
 
+Semantic search uses Chroma cosine-distance ranking only to find candidates.
+Every candidate is fetched again from `CLINICAL_NOTE` in MySQL with the
+requesting user's clinic predicate; stale, deleted, or unauthorized records
+are omitted. Chroma synchronization failures return `503` after the MySQL
+note commit and can be retried safely with the stable SQL note ID.
+
+Clinical-note creation also records a `NOTE_VECTOR_OUTBOX` row in the same
+MySQL transaction. A failed Chroma synchronization leaves that row pending;
+retrying `synchronize_pending_notes` performs an idempotent upsert and records
+the attempt result without changing the SQL note.
+
+Protected requests re-check `APP_USER.status` after JWT validation. A token
+issued before deactivation is rejected with `401` once the account is
+inactive.
+
 `POST /auth/register` accepts `email`, `password`, `role`, and `clinic_id`.
 Public registration creates clinic-scoped `STAFF` users only. An `ADMIN`
 request requires an authenticated administrator. The first administrator can

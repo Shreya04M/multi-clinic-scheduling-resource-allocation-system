@@ -24,3 +24,21 @@ BEGIN
 END //
 
 DELIMITER ;
+
+DELIMITER //
+CREATE TRIGGER validate_appointment_equipment_clinic
+BEFORE INSERT ON APPOINTMENT_EQUIPMENT
+FOR EACH ROW
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM APPOINTMENT a
+        JOIN EQUIPMENT e ON e.equipment_id = NEW.equipment_id
+        WHERE a.appointment_id = NEW.appointment_id
+          AND a.clinic_id = e.clinic_id
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Equipment must belong to the appointment clinic';
+    END IF;
+END //
+DELIMITER ;
