@@ -1,6 +1,13 @@
 
 USE clinic_management;
 
+-- Reviewed, non-destructive migration for an existing database.
+-- BEFORE running this file, take a logical backup and verify it:
+-- mysqldump --single-transaction --routines --triggers clinic_management > clinic_management_before_repair.sql
+-- mysql clinic_management < clinic_management_before_repair.sql
+-- Do not run schema.sql or seed.sql against the live database.
+-- The ALTER TABLE statements preserve rows and existing foreign keys.
+
 -- 1. Create the missing authentication table
 CREATE TABLE IF NOT EXISTS APP_USER (
     user_id INT NOT NULL AUTO_INCREMENT,

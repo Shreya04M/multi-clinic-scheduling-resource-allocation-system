@@ -6,8 +6,10 @@ import PatientForm from "../components/patients/PatientForm";
 import PatientTable from "../components/patients/PatientTable";
 import { apiFetch } from "../lib/api";
 import { GENDER_OPTIONS, type Patient, type PatientInput } from "../lib/types";
+import { useRequireAuth } from "../lib/auth";
 
 export default function PatientsPage() {
+  const { loading: authLoading, user } = useRequireAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -28,7 +30,8 @@ export default function PatientsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(load, [load]);
+  useEffect(() => { if (user) load(); }, [load, user]);
+  if (authLoading || !user) return <main className="module"><LoadingState label="Checking your session…" /></main>;
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();

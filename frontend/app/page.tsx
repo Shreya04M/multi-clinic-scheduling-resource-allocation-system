@@ -1,16 +1,25 @@
 "use client";
 import { useEffect, useState } from "react";
 import { API_URL, apiFetch } from "./lib/api";
+import { useAuth } from "./lib/auth";
+import { useRouter } from "next/navigation";
 
 export default function Dashboard() {
   const [stats, setStats] = useState<Record<string, number> | null>(null);
   const [error, setError] = useState("");
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login");
+      return;
+    }
+    if (loading || !user) return;
     apiFetch<Record<string, number>>("/dashboard")
       .then(setStats)
       .catch(e => setError(e instanceof Error ? e.message : String(e)));
-  }, []);
+  }, [loading, router, user]);
 
   return (
     <main>

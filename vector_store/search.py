@@ -21,9 +21,14 @@ def semantic_search(query: str, top_k: int, user: dict, db):
     authorized = []
     for note_id, distance in zip(result["ids"][0], result["distances"][0]):
         params = {"note_id": int(note_id)}
-        query = "SELECT note_id, note_text, clinic_id FROM CLINICAL_NOTE WHERE note_id=:note_id"
+        query = (
+            "SELECT n.note_id, n.note_text, a.clinic_id "
+            "FROM CLINICAL_NOTE n "
+            "JOIN APPOINTMENT a ON a.appointment_id=n.appointment_id "
+            "WHERE n.note_id=:note_id"
+        )
         if user["role"] != "ADMIN":
-            query += " AND clinic_id=:clinic_id"
+            query += " AND a.clinic_id=:clinic_id"
             params["clinic_id"] = int(user["clinic_id"])
         try:
             row = db.execute(text(query), params).mappings().first()

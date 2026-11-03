@@ -54,6 +54,17 @@ class AppointmentCreate(BaseModel):
         return self
 
 
+class AppointmentStatusUpdate(BaseModel):
+    status: str
+
+    @model_validator(mode="after")
+    def valid_status(self):
+        self.status = self.status.lower()
+        if self.status not in ("scheduled", "completed", "cancelled"):
+            raise ValueError("status must be scheduled, completed, or cancelled")
+        return self
+
+
 class PatientCreate(BaseModel):
     patient_id: int | None = Field(default=None, gt=0)
     first_name: str = Field(min_length=1, max_length=50)
@@ -86,3 +97,20 @@ class NoteCreate(BaseModel):
 class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=500)
     top_k: int = Field(default=5, ge=1, le=20)
+
+
+class RoomCreate(BaseModel):
+    room_id: int = Field(gt=0)
+    clinic_id: int
+    room_number: str = Field(min_length=1, max_length=20)
+    room_type: str | None = Field(default=None, max_length=50)
+    capacity: int | None = Field(default=None, gt=0)
+    status: str = Field(default="available", max_length=20)
+
+
+class EquipmentCreate(BaseModel):
+    equipment_id: int = Field(gt=0)
+    clinic_id: int
+    equipment_type: str | None = Field(default=None, max_length=100)
+    equipment_name: str = Field(min_length=1, max_length=150)
+    status: str = Field(default="operational", max_length=20)

@@ -83,3 +83,15 @@ def synchronize_pending_notes(db, limit: int = 100) -> int:
         synchronized += 1
     db.commit()
     return synchronized
+
+
+def enqueue_missing_notes(db) -> int:
+    result = db.execute(
+        text(
+            "INSERT IGNORE INTO NOTE_VECTOR_OUTBOX (note_id) "
+            "SELECT note_id FROM CLINICAL_NOTE "
+            "WHERE note_text IS NOT NULL AND CHAR_LENGTH(TRIM(note_text)) > 0"
+        )
+    )
+    db.commit()
+    return result.rowcount

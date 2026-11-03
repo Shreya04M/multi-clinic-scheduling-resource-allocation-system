@@ -3,8 +3,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Field } from "../ui";
 import { ApiError, apiFetch } from "../../lib/api";
 import { todayISO } from "../../lib/format";
-import { MOCK_PATIENTS } from "../../lib/mock-patients";
-import { MOCK_CLINICS, MOCK_DOCTORS, MOCK_ROOMS, doctorName } from "../../lib/mock-reference";
+import { doctorName } from "../../lib/mock-reference";
 import { APPOINTMENT_TYPES, type ReferenceData } from "../../lib/types";
 
 /** Request body accepted by POST /appointments (backend/app/schemas.py AppointmentCreate). */
@@ -56,7 +55,7 @@ export function validateBooking(v: Values): Errors {
 const withSeconds = (t: string) => (t.length === 5 ? `${t}:00` : t);
 
 interface Props {
-  mode: "live" | "demo";
+  mode: "live";
   onSubmit: (request: AppointmentRequest, appointmentType: string | null) => Promise<void>;
   onCancel: () => void;
 }
@@ -67,12 +66,11 @@ export default function AppointmentForm({ mode, onSubmit, onCancel }: Props) {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<{ title: string; message: string } | null>(null);
-  const [reference, setReference] = useState<ReferenceData>({ patients: MOCK_PATIENTS, clinics: MOCK_CLINICS, doctors: MOCK_DOCTORS, rooms: MOCK_ROOMS, equipment: [] });
+  const [reference, setReference] = useState<ReferenceData>({ patients: [], clinics: [], doctors: [], rooms: [], equipment: [] });
 
   useEffect(() => {
-    if (mode !== "live") return;
     apiFetch<ReferenceData>("/reference").then(setReference).catch((err: Error) => setServerError({ title: "Reference data unavailable", message: err.message }));
-  }, [mode]);
+  }, []);
 
   const rooms = useMemo(() => reference.rooms.filter(r => String(r.clinic_id) === values.clinic_id), [reference.rooms, values.clinic_id]);
 
@@ -130,11 +128,7 @@ export default function AppointmentForm({ mode, onSubmit, onCancel }: Props) {
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      {mode === "demo" ? (
-        <div className="notice demo"><strong>Demo mode:</strong> this request will NOT be sent to the backend. No availability or conflict checks run, and nothing is saved to MySQL.</div>
-      ) : (
-        <div className="notice live">The request is sent to POST /appointments. The backend checks doctor availability and room conflicts, and confirms the booking.</div>
-      )}
+      <div className="notice live">The request is sent to POST /appointments. The backend checks doctor availability and room conflicts, and confirms the booking.</div>
       {serverError && (
         <div className="form-error" role="alert"><strong>{serverError.title}:</strong> {serverError.message}</div>
       )}
@@ -183,7 +177,7 @@ export default function AppointmentForm({ mode, onSubmit, onCancel }: Props) {
       </div>
       <div className="form-actions">
         <button type="button" className="btn secondary" onClick={onCancel} disabled={submitting}>Cancel</button>
-        <button type="submit" className="btn" disabled={submitting}>{submitting ? "Submitting…" : mode === "demo" ? "Add demo request" : "Submit booking request"}</button>
+        <button type="submit" className="btn" disabled={submitting}>{submitting ? "Submitting…" : "Submit booking request"}</button>
       </div>
     </form>
   );

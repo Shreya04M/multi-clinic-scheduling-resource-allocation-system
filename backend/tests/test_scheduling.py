@@ -8,26 +8,13 @@ from app.schemas import AppointmentCreate
 from app.services.scheduling import create_appointment
 
 
-class FakeTransaction:
-    def __init__(self):
-        self.rolled_back = False
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.rolled_back = exc_type is not None
-        return False
-
-
 class FakeDatabase:
     def __init__(self, responses):
         self.responses = iter(responses)
-        self.transaction = FakeTransaction()
         self.executed = []
-
-    def begin(self):
-        return self.transaction
+        self.commits = 0
+        self.rollbacks = 0
+        self.transaction_started = True
 
     def execute(self, statement, params=None):
         self.executed.append((str(statement), params))
@@ -35,6 +22,14 @@ class FakeDatabase:
         if isinstance(response, Exception):
             raise response
         return response
+
+    def commit(self):
+        self.commits += 1
+        self.transaction_started = False
+
+    def rollback(self):
+        self.rollbacks += 1
+        self.transaction_started = False
 
 
 def result(row=None, *, lastrowid=None):
@@ -78,6 +73,8 @@ def test_successful_appointment_creation_checks_availability_and_links_equipment
     assert appointment_id == 123
     assert any("DOCTOR_AVAILABILITY" in sql for sql, _ in db.executed)
     assert db.executed[-1][1] == {"appointment_id": 123, "equipment_id": 701}
+    assert db.commits == 1
+    assert db.rollbacks == 0
 
 
 def test_doctor_unavailability_returns_conflict():
@@ -94,6 +91,7 @@ def test_doctor_unavailability_returns_conflict():
 
     assert exc_info.value.status_code == 409
     assert "unavailable" in exc_info.value.detail
+    assert db.rollbacks == 1
 
 
 def test_overlapping_appointment_returns_conflict():
@@ -112,6 +110,7 @@ def test_overlapping_appointment_returns_conflict():
 
     assert exc_info.value.status_code == 409
     assert "overlapping" in exc_info.value.detail
+    assert db.rollbacks == 1
 
 
 def test_equipment_failure_rolls_back_transaction():
@@ -130,4 +129,54 @@ def test_equipment_failure_rolls_back_transaction():
         create_appointment(db, request())
 
     assert exc_info.value.status_code == 409
-    assert db.transaction.rolled_back
+    assert db.rollbacks == 1
+
+
+def test_room_conflict_returns_conflict_and_rolls_back():
+    db = FakeDatabase(
+        [
+            result((101,)),
+            result((601, 201)),
+            result((1,)),
+            result((1,)),
+            result((801,)),
+        ]
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        create_appointment(db, request())
+
+    assert exc_info.value.status_code == 409
+    assert db.rollbacks == 1
+
+
+def test_insertion_failure_rolls_back_entire_transaction():
+    db = FakeDatabase(
+        [
+            result((101,)),
+            result((601, 201)),
+            result((1,)),
+            result((1,)),
+            result(None),
+            result((701,)),
+            result(None),
+            result(lastrowid=123),
+            RuntimeError("allocation insert failed"),
+        ]
+    )
+
+    with pytest.raises(RuntimeError, match="allocation insert failed"):
+        create_appointment(db, request())
+
+    assert db.commits == 0
+    assert db.rollbacks == 1
+
+
+def test_booking_uses_already_started_session_transaction():
+    db = FakeDatabase(successful_responses())
+    assert db.transaction_started
+
+    assert create_appointment(db, request()) == 123
+
+    assert db.commits == 1
+    assert not db.transaction_started

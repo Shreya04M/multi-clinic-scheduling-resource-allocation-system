@@ -36,8 +36,12 @@ class FakeCollection:
 class FakeDatabase:
     def __init__(self, row):
         self.row = row
+        self.statements = []
+        self.params = []
 
     def execute(self, statement, params):
+        self.statements.append(str(statement))
+        self.params.append(params)
         assert params["note_id"] == 901
         return SimpleNamespace(
             mappings=lambda: SimpleNamespace(first=lambda: self.row)
@@ -105,16 +109,46 @@ def test_semantic_search_filters_non_admin_by_clinic(monkeypatch):
         SimpleNamespace(SentenceTransformer=FakeModel),
     )
 
+    database = FakeDatabase({"note_id": 901, "note_text": "Authorized note", "clinic_id": 201})
     response = search.semantic_search(
         "chest",
         5,
         {"role": "DOCTOR", "clinic_id": 201},
-        FakeDatabase({"note_id": 901, "note_text": "Authorized note", "clinic_id": 201}),
+        database,
     )
 
     assert collection.queries[0]["where"] == {"clinic_id": 201}
+    assert "JOIN APPOINTMENT a ON a.appointment_id=n.appointment_id" in database.statements[0]
+    assert "a.clinic_id=:clinic_id" in database.statements[0]
+    assert database.params[0]["clinic_id"] == 201
     assert response["results"][0]["note_id"] == 901
     assert response["results"][0]["text"] == "Authorized note"
+
+
+def test_semantic_search_keeps_admin_results_unrestricted(monkeypatch):
+    sync._model.cache_clear()
+    monkeypatch.setattr(sync.settings, "embedding_dimension", 3)
+    collection = FakeCollection()
+    monkeypatch.setattr(search, "get_collection", lambda: collection)
+    monkeypatch.setitem(
+        sys.modules,
+        "sentence_transformers",
+        SimpleNamespace(SentenceTransformer=FakeModel),
+    )
+    database = FakeDatabase({"note_id": 901, "note_text": "Admin-visible note", "clinic_id": 201})
+
+    response = search.semantic_search(
+        "chest",
+        5,
+        {"role": "ADMIN", "clinic_id": None},
+        database,
+    )
+
+    assert collection.queries[0]["where"] is None
+    assert "JOIN APPOINTMENT a ON a.appointment_id=n.appointment_id" in database.statements[0]
+    assert "a.clinic_id=:clinic_id" not in database.statements[0]
+    assert database.params[0] == {"note_id": 901}
+    assert response["results"][0]["text"] == "Admin-visible note"
 
 
 def test_semantic_search_drops_missing_sql_records(monkeypatch):

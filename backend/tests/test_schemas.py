@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from app.schemas import AppointmentCreate, PatientCreate
+from app.schemas import AppointmentCreate, AppointmentStatusUpdate, PatientCreate
 
 def test_end_must_follow_start():
     with pytest.raises(ValidationError):
@@ -48,3 +48,13 @@ def test_patient_id_is_optional_for_server_assignment():
         date_of_birth="2000-01-01",
     )
     assert patient.patient_id is None
+
+
+@pytest.mark.parametrize("status", ["scheduled", "completed", "cancelled"])
+def test_appointment_status_accepts_valid_values(status):
+    assert AppointmentStatusUpdate(status=status).status == status
+
+
+def test_appointment_status_rejects_invalid_value():
+    with pytest.raises(ValidationError):
+        AppointmentStatusUpdate(status="pending")

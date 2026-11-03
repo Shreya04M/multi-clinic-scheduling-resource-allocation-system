@@ -9,10 +9,10 @@ from ..schemas import AppointmentCreate
 
 def create_appointment(db: Session, request: AppointmentCreate) -> int:
     appointment_start = datetime.combine(request.appointment_date, request.start_time)
-    if appointment_start <= datetime.now():
-        raise HTTPException(422, "Appointment must start in the future")
+    try:
+        if appointment_start <= datetime.now():
+            raise HTTPException(422, "Appointment must start in the future")
 
-    with db.begin():
         doctor = db.execute(
             text("SELECT doctor_id FROM DOCTOR WHERE doctor_id=:id AND status='active' FOR UPDATE"),
             {"id": request.doctor_id},
@@ -141,5 +141,9 @@ def create_appointment(db: Session, request: AppointmentCreate) -> int:
                 ),
                 {"appointment_id": appointment_id, "equipment_id": equipment_id},
             )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
     return appointment_id

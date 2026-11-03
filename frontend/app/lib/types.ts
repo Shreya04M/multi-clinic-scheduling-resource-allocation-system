@@ -67,8 +67,8 @@ export interface AppointmentRecord {
   clinic_name: string;
   room_number: string | null;
   appointment_date: string; // YYYY-MM-DD
-  start_time: string; // HH:MM:SS
-  end_time: string; // HH:MM:SS
+  start_time: string | number;
+  end_time: string | number;
   appointment_type: string | null;
   status: string;
 }
