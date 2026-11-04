@@ -7,6 +7,7 @@ Multi-Clinic Patient Scheduling and Resource Allocation System.
 
 - `schema.sql` creates `clinic_management` and the 16 tables in foreign-key
   dependency order.
+  `PATIENT.clinic_id` assigns each patient to exactly one clinic.
   `APP_USER` stores only bcrypt password hashes, supports `ADMIN` and `STAFF`
   roles, and optionally links staff to a clinic. Email is unique and account
   status is constrained to `active` or `inactive`.
@@ -19,6 +20,8 @@ Multi-Clinic Patient Scheduling and Resource Allocation System.
   It uses `INSERT IGNORE` inside one transaction, so reruns do not duplicate
   seeded primary or unique keys and existing user-created rows are preserved.
   A duplicate seed key is skipped rather than replacing an existing row.
+- `migrate_patient_clinic.sql` backfills `PATIENT.clinic_id` for existing
+  databases without deleting patient records.
 - `functions.sql` creates `appointment_duration` and contains its example
   `SELECT`.
 - `procedures.sql` creates `GetPatientAppointments` and contains its example
@@ -54,6 +57,11 @@ Execute the setup scripts in this order:
 8. `queries.sql` (run individual queries as required)
 9. `test_operations.sql` (testing only)
 10. `verify.sql` (non-destructive verification queries)
+
+For an existing database created before patient clinic ownership was added,
+take a backup and run `migrate_patient_clinic.sql` against it. The migration
+backfills ownership from appointments and assigns patients without
+appointments to clinic 201 before enforcing the foreign key.
 
 In MySQL Workbench, open each file, select the intended statements or the
 whole script, and click the lightning-bolt Execute button. Workbench
@@ -129,4 +137,3 @@ occupancy for pre-existing appointments.
 
 No sample records were invented, and no setup script performs `UPDATE`,
 `DELETE`, `DROP DATABASE`, or `DROP TABLE`.
-

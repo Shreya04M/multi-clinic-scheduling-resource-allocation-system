@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     embedding_model: str = "all-MiniLM-L6-v2"
     embedding_dimension: int = 384
     search_top_k: int = 5
+    search_max_distance: float = 0.8
     model_config = SettingsConfigDict(
     env_file=Path(__file__).resolve().parents[1] / ".env",
     extra="ignore"

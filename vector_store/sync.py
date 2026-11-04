@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from backend.app.config import settings
 from sqlalchemy import text
@@ -30,7 +31,10 @@ def _embedding(text_value: str) -> list[float]:
 def get_collection():
     try:
         import chromadb
-        return chromadb.PersistentClient(path=settings.chroma_path).get_or_create_collection("clinical_notes", metadata={"hnsw:space":"cosine"})
+        chroma_path = Path(settings.chroma_path)
+        if not chroma_path.is_absolute():
+            chroma_path = Path(__file__).resolve().parents[1] / chroma_path
+        return chromadb.PersistentClient(path=str(chroma_path)).get_or_create_collection("clinical_notes", metadata={"hnsw:space":"cosine"})
     except Exception as exc:
         raise RuntimeError("Vector store is unavailable") from exc
 

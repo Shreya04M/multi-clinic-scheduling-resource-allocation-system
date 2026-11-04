@@ -170,10 +170,7 @@ def update_user_status(user_id: int, status_value: str, user=Depends(require_rol
 def dashboard(user=Depends(current_user), db: Session = Depends(get_db)):
     scope = "" if user["role"] == "ADMIN" else " WHERE clinic_id=:clinic_id"
     params = {} if not scope else {"clinic_id": user.get("clinic_id")}
-    patient_scope = "" if user["role"] == "ADMIN" else (
-        " WHERE EXISTS (SELECT 1 FROM APPOINTMENT pa "
-        "WHERE pa.patient_id=p.patient_id AND pa.clinic_id=:clinic_id)"
-    )
+    patient_scope = "" if user["role"] == "ADMIN" else " WHERE p.clinic_id=:clinic_id"
     return {
         "appointments": db.execute(text(f"SELECT COUNT(*) FROM APPOINTMENT{scope}"), params).scalar(),
         "patients": db.execute(text(f"SELECT COUNT(*) FROM PATIENT p{patient_scope}"), params).scalar(),
@@ -198,10 +195,7 @@ def reference(user=Depends(current_user), db: Session = Depends(get_db)):
     ).mappings().all()
     rooms = db.execute(text(f"SELECT room_id, clinic_id, room_number, room_type, capacity, status FROM ROOM{clinic_filter} ORDER BY clinic_id, room_number"), params).mappings().all()
     equipment = db.execute(text(f"SELECT equipment_id, clinic_id, equipment_type, equipment_name, status FROM EQUIPMENT{clinic_filter} ORDER BY clinic_id, equipment_name"), params).mappings().all()
-    patient_scope = "" if user["role"] == "ADMIN" else (
-        " WHERE EXISTS (SELECT 1 FROM APPOINTMENT pa "
-        "WHERE pa.patient_id=p.patient_id AND pa.clinic_id=:clinic_id)"
-    )
+    patient_scope = "" if user["role"] == "ADMIN" else " WHERE p.clinic_id=:clinic_id"
     patients = db.execute(
         text(
             "SELECT p.patient_id, p.first_name, p.last_name, p.date_of_birth, "
@@ -224,10 +218,7 @@ def patients(search: str | None = None, gender: str | None = None, user=Depends(
         clauses.append("gender=:gender")
         params["gender"] = gender
     if user["role"] != "ADMIN":
-        clauses.append(
-            "EXISTS (SELECT 1 FROM APPOINTMENT pa "
-            "WHERE pa.patient_id=PATIENT.patient_id AND pa.clinic_id=:clinic_id)"
-        )
+        clauses.append("clinic_id=:clinic_id")
         params["clinic_id"] = user.get("clinic_id")
     where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
     return [dict(row) for row in db.execute(text(f"SELECT patient_id, first_name, last_name, date_of_birth, gender, phone, email, address FROM PATIENT{where} ORDER BY last_name, first_name, patient_id"), params).mappings().all()]
@@ -238,10 +229,7 @@ def patient(patient_id: int, user=Depends(current_user), db: Session = Depends(g
     params = {"patient_id": patient_id}
     clinic_clause = ""
     if user["role"] != "ADMIN":
-        clinic_clause = (
-            " AND EXISTS (SELECT 1 FROM APPOINTMENT pa "
-            "WHERE pa.patient_id=PATIENT.patient_id AND pa.clinic_id=:clinic_id)"
-        )
+        clinic_clause = " AND clinic_id=:clinic_id"
         params["clinic_id"] = user.get("clinic_id")
     row = db.execute(
         text(
@@ -261,9 +249,12 @@ def create_patient(request: PatientCreate, user=Depends(require_roles("ADMIN", "
         patient_id = request.patient_id
         if patient_id is None:
             patient_id = db.execute(text("SELECT COALESCE(MAX(patient_id), 0) + 1 FROM PATIENT FOR UPDATE")).scalar_one()
+        clinic_id = user.get("clinic_id") or request.clinic_id
+        if clinic_id is None:
+            raise HTTPException(422, "A clinic is required to create a patient")
         db.execute(
-            text("INSERT INTO PATIENT (patient_id, first_name, last_name, date_of_birth, gender, phone, email, address) VALUES (:patient_id, :first_name, :last_name, :date_of_birth, :gender, :phone, :email, :address)"),
-            {"patient_id": patient_id, **request.model_dump(exclude={"patient_id"})},
+            text("INSERT INTO PATIENT (patient_id, clinic_id, first_name, last_name, date_of_birth, gender, phone, email, address) VALUES (:patient_id, :clinic_id, :first_name, :last_name, :date_of_birth, :gender, :phone, :email, :address)"),
+            {"patient_id": patient_id, "clinic_id": clinic_id, **request.model_dump(exclude={"patient_id", "clinic_id"})},
         )
         db.commit()
     except IntegrityError as exc:
@@ -272,7 +263,7 @@ def create_patient(request: PatientCreate, user=Depends(require_roles("ADMIN", "
     except Exception:
         db.rollback()
         raise
-    return {"patient_id": patient_id, **request.model_dump(exclude={"patient_id"})}
+    return {"patient_id": patient_id, **request.model_dump(exclude={"patient_id", "clinic_id"})}
 
 
 @app.patch("/patients/{patient_id}")
@@ -284,10 +275,7 @@ def update_patient(patient_id: int, request: PatientUpdate, user=Depends(require
     params = {**changes, "patient_id": patient_id}
     clinic_clause = ""
     if user["role"] != "ADMIN":
-        clinic_clause = (
-            " AND EXISTS (SELECT 1 FROM APPOINTMENT pa "
-            "WHERE pa.patient_id=PATIENT.patient_id AND pa.clinic_id=:clinic_id)"
-        )
+        clinic_clause = " AND clinic_id=:clinic_id"
         params["clinic_id"] = user.get("clinic_id")
     result = db.execute(text(f"UPDATE PATIENT SET {assignments} WHERE patient_id=:patient_id{clinic_clause}"), params)
     db.commit()
@@ -301,10 +289,7 @@ def delete_patient(patient_id: int, user=Depends(require_roles("ADMIN", "STAFF",
     params = {"patient_id": patient_id}
     clinic_clause = ""
     if user["role"] != "ADMIN":
-        clinic_clause = (
-            " AND EXISTS (SELECT 1 FROM APPOINTMENT pa "
-            "WHERE pa.patient_id=PATIENT.patient_id AND pa.clinic_id=:clinic_id)"
-        )
+        clinic_clause = " AND clinic_id=:clinic_id"
         params["clinic_id"] = user.get("clinic_id")
     try:
         result = db.execute(text(f"DELETE FROM PATIENT WHERE patient_id=:patient_id{clinic_clause}"), params)

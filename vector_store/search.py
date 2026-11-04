@@ -20,6 +20,8 @@ def semantic_search(query: str, top_k: int, user: dict, db):
 
     authorized = []
     for note_id, distance in zip(result["ids"][0], result["distances"][0]):
+        if distance > settings.search_max_distance:
+            continue
         params = {"note_id": int(note_id)}
         query = (
             "SELECT n.note_id, n.note_text, a.clinic_id "

@@ -67,6 +67,7 @@ class AppointmentStatusUpdate(BaseModel):
 
 class PatientCreate(BaseModel):
     patient_id: int | None = Field(default=None, gt=0)
+    clinic_id: int | None = Field(default=None, gt=0)
     first_name: str = Field(min_length=1, max_length=50)
     last_name: str = Field(min_length=1, max_length=50)
     date_of_birth: date

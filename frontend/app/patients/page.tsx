@@ -31,8 +31,6 @@ export default function PatientsPage() {
   }, []);
 
   useEffect(() => { if (user) load(); }, [load, user]);
-  if (authLoading || !user) return <main className="module"><LoadingState label="Checking your session…" /></main>;
-
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return patients.filter(p => {
@@ -41,6 +39,8 @@ export default function PatientsPage() {
       return matchesSearch && matchesGender;
     });
   }, [patients, search, gender]);
+
+  if (authLoading || !user) return <main className="module"><LoadingState label="Checking your session…" /></main>;
 
   const filtersActive = search.trim() !== "" || gender !== "";
   const clearFilters = () => {

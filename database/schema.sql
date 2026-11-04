@@ -45,6 +45,7 @@ CREATE INDEX idx_app_user_clinic_status ON APP_USER (clinic_id, status);
 
 CREATE TABLE PATIENT (
     patient_id INT NOT NULL,
+    clinic_id INT NOT NULL,
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
     date_of_birth DATE NOT NULL,
@@ -52,7 +53,8 @@ CREATE TABLE PATIENT (
     phone VARCHAR(20),
     email VARCHAR(150),
     address VARCHAR(255),
-    PRIMARY KEY (patient_id)
+    PRIMARY KEY (patient_id),
+    FOREIGN KEY (clinic_id) REFERENCES CLINIC(clinic_id)
 );
 
 CREATE TABLE MEDICINE (

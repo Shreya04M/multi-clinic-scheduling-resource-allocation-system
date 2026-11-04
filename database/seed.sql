@@ -20,14 +20,14 @@ VALUES
 (204, 'MediPlus Clinic', 'Indiranagar, Bengaluru', '08040002004', 'mediplus@clinic.com', 'active');
 
 INSERT IGNORE INTO PATIENT
-(patient_id, first_name, last_name, date_of_birth, gender, phone, email, address)
+(patient_id, clinic_id, first_name, last_name, date_of_birth, gender, phone, email, address)
 VALUES
-(301, 'Kavya', 'Sharma', '2002-05-14', 'Female', '9876501001', 'kavya.sharma@email.com', 'Electronic City, Bengaluru'),
-(302, 'Rohan', 'Kumar', '1998-11-23', 'Male', '9876501002', 'rohan.kumar@email.com', 'Koramangala, Bengaluru'),
-(303, 'Sneha', 'Patil', '2005-02-17', 'Female', '9876501003', 'sneha.patil@email.com', 'JP Nagar, Bengaluru'),
-(304, 'Aditya', 'Reddy', '1995-08-09', 'Male', '9876501004', 'aditya.reddy@email.com', 'Indiranagar, Bengaluru'),
-(305, 'Nisha', 'Shah', '2000-12-30', 'Female', '9876501005', 'nisha.shah@email.com', 'Whitefield, Bengaluru'),
-(306, 'Vikram', 'Joshi', '1992-04-18', 'Male', '9876501006', 'vikram.joshi@email.com', 'HSR Layout, Bengaluru');
+(301, 201, 'Kavya', 'Sharma', '2002-05-14', 'Female', '9876501001', 'kavya.sharma@email.com', 'Electronic City, Bengaluru'),
+(302, 201, 'Rohan', 'Kumar', '1998-11-23', 'Male', '9876501002', 'rohan.kumar@email.com', 'Koramangala, Bengaluru'),
+(303, 202, 'Sneha', 'Patil', '2005-02-17', 'Female', '9876501003', 'sneha.patil@email.com', 'JP Nagar, Bengaluru'),
+(304, 202, 'Aditya', 'Reddy', '1995-08-09', 'Male', '9876501004', 'aditya.reddy@email.com', 'Indiranagar, Bengaluru'),
+(305, 203, 'Nisha', 'Shah', '2000-12-30', 'Female', '9876501005', 'nisha.shah@email.com', 'Whitefield, Bengaluru'),
+(306, 204, 'Vikram', 'Joshi', '1992-04-18', 'Male', '9876501006', 'vikram.joshi@email.com', 'HSR Layout, Bengaluru');
 
 INSERT IGNORE INTO MEDICINE
 (medicine_id, medicine_name, generic_name, category)

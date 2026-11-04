@@ -13,10 +13,11 @@ class FakeModel:
 
 
 class FakeCollection:
-    def __init__(self):
+    def __init__(self, distance=0.1):
         self.upserts = []
         self.deletions = []
         self.queries = []
+        self.distance = distance
 
     def upsert(self, **kwargs):
         self.upserts.append(kwargs)
@@ -29,7 +30,7 @@ class FakeCollection:
         return {
             "ids": [["901"]],
             "documents": [["Chest discomfort"]],
-            "distances": [[0.1]],
+            "distances": [[self.distance]],
         }
 
 
@@ -123,6 +124,52 @@ def test_semantic_search_filters_non_admin_by_clinic(monkeypatch):
     assert database.params[0]["clinic_id"] == 201
     assert response["results"][0]["note_id"] == 901
     assert response["results"][0]["text"] == "Authorized note"
+
+
+def test_semantic_search_keeps_relevant_results(monkeypatch):
+    sync._model.cache_clear()
+    monkeypatch.setattr(sync.settings, "embedding_dimension", 3)
+    monkeypatch.setattr(search, "get_collection", lambda: FakeCollection(0.449))
+    monkeypatch.setattr(sync.settings, "search_max_distance", 0.8)
+    monkeypatch.setitem(
+        sys.modules,
+        "sentence_transformers",
+        SimpleNamespace(SentenceTransformer=FakeModel),
+    )
+
+    database = FakeDatabase({"note_id": 901, "note_text": "Chest discomfort", "clinic_id": 201})
+
+    response = search.semantic_search(
+        "chest discomfort",
+        5,
+        {"role": "ADMIN", "clinic_id": None},
+        database,
+    )
+
+    assert response["results"][0]["distance"] == 0.449
+
+
+def test_semantic_search_drops_unrelated_results(monkeypatch):
+    sync._model.cache_clear()
+    monkeypatch.setattr(sync.settings, "embedding_dimension", 3)
+    monkeypatch.setattr(search, "get_collection", lambda: FakeCollection(0.931))
+    monkeypatch.setattr(sync.settings, "search_max_distance", 0.8)
+    monkeypatch.setitem(
+        sys.modules,
+        "sentence_transformers",
+        SimpleNamespace(SentenceTransformer=FakeModel),
+    )
+
+    database = FakeDatabase({"note_id": 901, "note_text": "Chest discomfort", "clinic_id": 201})
+
+    response = search.semantic_search(
+        "quantum spacecraft dinosaur volcano",
+        5,
+        {"role": "ADMIN", "clinic_id": None},
+        database,
+    )
+
+    assert response == {"results": []}
 
 
 def test_semantic_search_keeps_admin_results_unrestricted(monkeypatch):
