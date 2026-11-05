@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from backend.app.config import settings
+from app.config import settings
 from sqlalchemy import text
 
 
@@ -31,20 +31,31 @@ def _embedding(text_value: str) -> list[float]:
 def get_collection():
     try:
         import chromadb
+
         chroma_path = Path(settings.chroma_path)
         if not chroma_path.is_absolute():
-            chroma_path = Path(__file__).resolve().parents[1] / chroma_path
-        return chromadb.PersistentClient(path=str(chroma_path)).get_or_create_collection("clinical_notes", metadata={"hnsw:space":"cosine"})
+            chroma_path = Path(__file__).resolve().parents[2] / chroma_path
+        return chromadb.PersistentClient(path=str(chroma_path)).get_or_create_collection(
+            "clinical_notes",
+            metadata={"hnsw:space": "cosine"},
+        )
     except Exception as exc:
         raise RuntimeError("Vector store is unavailable") from exc
 
+
 def sync_note(note_id: int, text_value: str, metadata: dict):
-    collection = get_collection()
-    embedding = _embedding(text_value)
     try:
-        collection.upsert(ids=[str(note_id)], embeddings=[embedding], documents=[text_value], metadatas=[metadata])
+        get_collection().upsert(
+            ids=[str(note_id)],
+            embeddings=[_embedding(text_value)],
+            documents=[text_value],
+            metadatas=[metadata],
+        )
+    except (RuntimeError, ValueError):
+        raise
     except Exception as exc:
         raise RuntimeError("Vector store synchronization failed") from exc
+
 
 def delete_note(note_id: int):
     get_collection().delete(ids=[str(note_id)])

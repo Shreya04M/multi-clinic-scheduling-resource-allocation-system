@@ -67,15 +67,6 @@ The backend regression suite can run without a database; live MySQL
 connectivity and SQL feature execution require a configured disposable MySQL
 8.0.16+ instance.
 
-## Verification status
-
-The current isolated backend/vector suite passes with `pytest backend/tests -q`
-(24 passed). This is not a live MySQL or Chroma deployment test. MySQL
-execution is currently blocked because no local MySQL client/server is
-available. Run the disposable-database commands in
-[`database/README.md`](database/README.md) before claiming live SQL, trigger,
-constraint, or FULLTEXT verification.
-
 Clinical notes use a MySQL `NOTE_VECTOR_OUTBOX` record for retryable,
 idempotent Chroma synchronization. SQL commits remain authoritative, and
 deactivated accounts are rejected even when presenting an older valid JWT.

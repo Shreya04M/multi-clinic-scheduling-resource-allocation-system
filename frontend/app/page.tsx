@@ -25,7 +25,7 @@ export default function Dashboard() {
     <main>
       <header>
         <span className="eyebrow">MULTI-CLINIC OPERATIONS</span>
-        <h1>Scheduling command center</h1>
+        <h1>Multi-Clinic Patient Scheduling and Resource Allocation System</h1>
         <p>Coordinate clinicians, rooms, equipment, and patient care without resource conflicts.</p>
       </header>
       {error && <div className="error" role="alert">{error}</div>}

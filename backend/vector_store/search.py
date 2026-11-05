@@ -7,14 +7,15 @@ def semantic_search(query: str, top_k: int, user: dict, db):
     if not isinstance(query, str) or not query.strip():
         raise ValueError("Search query must not be empty")
     try:
-        from backend.app.config import settings
-        embedding = _embedding(query)
-        where = None if user["role"] == "ADMIN" else {"clinic_id": int(user["clinic_id"])}
+        from app.config import settings
+
         result = get_collection().query(
-            query_embeddings=[embedding],
+            query_embeddings=[_embedding(query)],
             n_results=min(top_k, settings.search_top_k),
-            where=where,
+            where=None if user["role"] == "ADMIN" else {"clinic_id": int(user["clinic_id"])},
         )
+    except (RuntimeError, ValueError):
+        raise
     except Exception as exc:
         raise RuntimeError("Semantic search is currently unavailable") from exc
 
@@ -23,21 +24,25 @@ def semantic_search(query: str, top_k: int, user: dict, db):
         if distance > settings.search_max_distance:
             continue
         params = {"note_id": int(note_id)}
-        query = (
+        query_text = (
             "SELECT n.note_id, n.note_text, a.clinic_id "
             "FROM CLINICAL_NOTE n "
             "JOIN APPOINTMENT a ON a.appointment_id=n.appointment_id "
             "WHERE n.note_id=:note_id"
         )
         if user["role"] != "ADMIN":
-            query += " AND a.clinic_id=:clinic_id"
+            query_text += " AND a.clinic_id=:clinic_id"
             params["clinic_id"] = int(user["clinic_id"])
         try:
-            row = db.execute(text(query), params).mappings().first()
+            row = db.execute(text(query_text), params).mappings().first()
         except Exception as exc:
             raise RuntimeError("Clinical-note authorization lookup failed") from exc
         if row:
             authorized.append(
-                {"note_id": int(row["note_id"]), "text": row["note_text"], "distance": distance}
+                {
+                    "note_id": int(row["note_id"]),
+                    "text": row["note_text"],
+                    "distance": distance,
+                }
             )
     return {"results": authorized}

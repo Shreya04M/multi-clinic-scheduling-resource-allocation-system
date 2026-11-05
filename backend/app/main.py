@@ -404,8 +404,11 @@ def create_note(request: NoteCreate, user=Depends(current_user), db: Session = D
 
 @app.post("/notes/search")
 def search_notes(request: SearchRequest, user=Depends(current_user), db: Session = Depends(get_db)):
-    from vector_store.search import semantic_search
     try:
+        from vector_store.search import semantic_search
+        from vector_store.sync import enqueue_missing_notes, synchronize_pending_notes
+        enqueue_missing_notes(db)
+        synchronize_pending_notes(db)
         return semantic_search(request.query, request.top_k, user, db)
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(503, str(exc)) from exc
